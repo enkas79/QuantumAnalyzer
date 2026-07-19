@@ -1,0 +1,11 @@
+Package: quantumanalyzer
+Version: __VERSION__
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Enrico Martini <enkas79@gmail.com>
+Description: Analisi tecnica e fondamentale dei titoli azionari (Qt6)
+ QuantumAnalyzer unisce l'analisi tecnica di trend (EMA 50/200, RSI, ATR,
+ volume relativo) e l'analisi fondamentale value investing (Earnings
+ Yield, ROIC, EV/EBITDA, multipli di mercato, campanelli d'allarme di
+ valutazione) in un'unica applicazione desktop.

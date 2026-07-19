@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=QuantumAnalyzer
+Comment=Analisi tecnica e fondamentale dei titoli azionari
+Exec=/usr/bin/quantumanalyzer
+Terminal=false
+Categories=Office;Finance;

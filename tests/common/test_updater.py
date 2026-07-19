@@ -72,6 +72,20 @@ def test_same_version_means_no_update():
     assert available is False
 
 
+def test_pick_release_asset_darwin_accepts_dmg_and_legacy_zip():
+    from quantumanalyzer.common.updater import pick_release_asset
+
+    dmg_assets = [{"name": "QuantumAnalyzer-0.1.0.dmg", "browser_download_url": "https://example.invalid/qa.dmg"}]
+    assert pick_release_asset(dmg_assets, platform="darwin") == "https://example.invalid/qa.dmg"
+
+    legacy_assets = [{"name": "QuantumValue_v0.7_macOS.zip", "browser_download_url": "https://example.invalid/qv.zip"}]
+    assert pick_release_asset(legacy_assets, platform="darwin") == "https://example.invalid/qv.zip"
+
+    # il .dmg (formato della pipeline unificata) ha priorita' sul legacy zip
+    both = legacy_assets + dmg_assets
+    assert pick_release_asset(both, platform="darwin") == "https://example.invalid/qa.dmg"
+
+
 def test_network_failure_raises_value_error(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda _s: None)  # scavalca i backoff tenacity
     with patch(_GET, side_effect=requests.exceptions.ConnectionError("down")):

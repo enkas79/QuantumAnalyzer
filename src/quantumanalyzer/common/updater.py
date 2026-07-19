@@ -64,6 +64,10 @@ def pick_release_asset(assets: List[Dict[str, Any]], platform: str = sys.platfor
     Sceglie dall'elenco degli asset di una GitHub Release quello adatto
     alla piattaforma corrente.
 
+    Su macOS accetta sia il ".dmg" (prodotto dalla pipeline unificata di
+    QuantumAnalyzer) sia il legacy "_macos.zip" (formato delle vecchie
+    release QuantumValue).
+
     Args:
         assets: Lista di asset della release (API GitHub).
         platform: Identificatore piattaforma (sys.platform).
@@ -72,16 +76,17 @@ def pick_release_asset(assets: List[Dict[str, Any]], platform: str = sys.platfor
         str: URL di download diretto, o stringa vuota se nessun asset combacia.
     """
     if platform.startswith("win"):
-        suffix = ".exe"
+        suffixes: Tuple[str, ...] = (".exe",)
     elif platform == "darwin":
-        suffix = "_macos.zip"
+        suffixes = (".dmg", "_macos.zip")
     else:
-        suffix = ".deb"
+        suffixes = (".deb",)
 
-    for asset in assets:
-        name = str(asset.get('name', '')).lower()
-        if name.endswith(suffix):
-            return str(asset.get('browser_download_url', ''))
+    for suffix in suffixes:
+        for asset in assets:
+            name = str(asset.get('name', '')).lower()
+            if name.endswith(suffix):
+                return str(asset.get('browser_download_url', ''))
     return ""
 
 

@@ -1,0 +1,114 @@
+name: Build Installers
+
+# Adattato dal workflow di StockAnalyzer: si attiva quando version.txt cambia
+# su main, costruisce installer Windows (.exe via NSIS), macOS (.dmg) e
+# Debian/Ubuntu (.deb) e li allega a una GitHub Release taggata vX.Y.Z.
+# Il controllo aggiornamenti in-app (common/updater.py) sceglie l'asset
+# per piattaforma proprio in base a questi suffissi.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - version.txt
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: echo "version=$(tr -d '[:space:]' < version.txt)" >> "$GITHUB_OUTPUT"
+
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[gui]" pyinstaller
+      # onedir (default, senza --onefile): una vera cartella applicazione
+      # sotto Program Files; NSIS impacchetta l'intera dist\QuantumAnalyzer\.
+      - run: pyinstaller --noconfirm --windowed --name QuantumAnalyzer --copy-metadata QuantumAnalyzer --add-data "version.txt;." --add-data "src/quantumanalyzer/gui/icon.ico;." main.py
+      - name: Install NSIS
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build installer
+        run: makensis /DVERSION=${{ needs.version.outputs.version }} packaging\windows\installer.nsi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: packaging/windows/QuantumAnalyzer-Setup-${{ needs.version.outputs.version }}.exe
+
+  build-macos:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[gui]" pyinstaller
+      - run: pyinstaller --noconfirm --windowed --name QuantumAnalyzer --copy-metadata QuantumAnalyzer --add-data "version.txt:." --add-data "src/quantumanalyzer/gui/icon.ico:." main.py
+      - name: Build dmg
+        run: |
+          hdiutil create -volname "QuantumAnalyzer" -srcfolder dist/QuantumAnalyzer.app -ov -format UDZO \
+            "QuantumAnalyzer-${{ needs.version.outputs.version }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: QuantumAnalyzer-${{ needs.version.outputs.version }}.dmg
+
+  build-deb:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[gui]" pyinstaller
+      - run: pyinstaller --noconfirm --onefile --name quantumanalyzer --copy-metadata QuantumAnalyzer --add-data "version.txt:." --add-data "src/quantumanalyzer/gui/icon.ico:." main.py
+      - name: Assemble .deb tree
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          PKG_DIR=packaging/deb/build
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR/DEBIAN" "$PKG_DIR/usr/bin" "$PKG_DIR/usr/share/applications"
+          sed "s/__VERSION__/$VERSION/" packaging/deb/DEBIAN/control > "$PKG_DIR/DEBIAN/control"
+          cp dist/quantumanalyzer "$PKG_DIR/usr/bin/quantumanalyzer"
+          chmod 755 "$PKG_DIR/usr/bin/quantumanalyzer"
+          cp packaging/deb/usr/share/applications/quantumanalyzer.desktop "$PKG_DIR/usr/share/applications/"
+          dpkg-deb --build --root-owner-group "$PKG_DIR" "quantumanalyzer_${VERSION}_amd64.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: quantumanalyzer_${{ needs.version.outputs.version }}_amd64.deb
+
+  release:
+    needs: [version, build-windows, build-macos, build-deb]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: QuantumAnalyzer v${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            artifacts/windows-installer/*
+            artifacts/macos-installer/*
+            artifacts/linux-deb/*

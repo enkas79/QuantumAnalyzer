@@ -225,6 +225,7 @@ quantumanalyzer_cache.db
 *.deb
 *.exe
 *.dll
-packaging/
+packaging/deb/build/
+QuantumAnalyzer-Setup-*.exe
 *.local
 old_version/
