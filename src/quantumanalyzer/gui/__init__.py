@@ -1,8 +1,12 @@
 """
-Placeholder per la GUI unificata di QuantumAnalyzer.
+GUI unificata di QuantumAnalyzer (PySide6).
 
-Non ancora implementata. Le due app originali hanno GUI su framework Qt
-diversi (StockAnalyzer: PySide6, QuantumValue: PyQt6) che vanno unificate
-prima di poter costruire un'unica finestra con le due analisi (tecnica e
-fondamentale) fianco a fianco. Vedi MIGRATION_PLAN.md per il piano dettagliato.
+Moduli:
+- `app`: finestra principale unificata (barra ticker condivisa + tab) ed
+  entry point `quantumanalyzer-gui`.
+- `technical_view` / `technical_workers`: analisi tecnica (da StockAnalyzer,
+  gia' PySide6 in origine).
+- `fundamental_view` / `fundamental_workers`: analisi fondamentale/ETF
+  (da QuantumValue, portata da PyQt6 a PySide6).
+- `theme`: palette e stylesheet chiaro/scuro applicati a livello applicazione.
 """
