@@ -1,0 +1,22 @@
+# Dipendenze della logica "core" (tecnica + fondamentale) di QuantumAnalyzer.
+# Nessuna dipendenza GUI: vedi MIGRATION_PLAN.md per lo stato dell'unificazione
+# PySide6/PyQt6.
+
+# Dati finanziari
+pandas>=2.0
+numpy>=1.24
+yfinance>=0.2.40
+requests>=2.31.0
+
+# Ottimizzazioni rete (retry, hedged requests)
+httpx>=0.25.0
+tenacity>=8.2.2
+
+# Salvataggio sicuro delle API key
+cryptography>=41.0.7
+keyring>=24.0.0
+
+# Test e qualita' (opzionale per sviluppo)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+mypy>=1.11.2

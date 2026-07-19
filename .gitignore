@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# QuantumAnalyzer: dati locali persistenti dell'app (cache SQLite, log,
+# API key) e pacchetti/installer prodotti dalle build locali
+.quantumanalyzer/
+quantumanalyzer_cache.db
+*.dmg
+*.deb
+*.exe
+*.dll
+packaging/
+*.local
+old_version/

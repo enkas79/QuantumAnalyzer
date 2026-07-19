@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "QuantumAnalyzer"
+dynamic = ["version"]
+description = "Fusione di StockAnalyzer (analisi tecnica/trend) e QuantumValue (analisi fondamentale/value investing)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Enrico Martini", email = "enkas79@gmail.com" }
+]
+keywords = ["finance", "stocks", "etf", "value-investing", "technical-analysis", "analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+
+# Dipendenze della logica "core" (tecnica + fondamentale), gia' portata in
+# questo repo. Nessuna dipendenza GUI qui: PySide6 (StockAnalyzer) e PyQt6
+# (QuantumValue) non sono ancora state unificate su un solo framework, quindi
+# lo scaffold resta installabile e testabile senza nessuna delle due.
+# Vedi MIGRATION_PLAN.md.
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "yfinance>=0.2.40",
+    "requests>=2.31.0",
+    "httpx>=0.25.0",
+    "tenacity>=8.2.2",
+    "cryptography>=41.0.7",
+    "keyring>=24.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.11.2",
+]
+# Framework GUI: aggiungere qui SOLO dopo la decisione di unificazione
+# (PySide6 o PyQt6, non entrambi) descritta in MIGRATION_PLAN.md.
+gui = []
+
+[project.scripts]
+quantumanalyzer-cli = "quantumanalyzer.technical.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["quantumanalyzer*"]
+
+[tool.setuptools.dynamic]
+version = { file = "version.txt" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+pythonpath = ["src"]
+addopts = "--cov=src/quantumanalyzer --cov-report=term-missing"
