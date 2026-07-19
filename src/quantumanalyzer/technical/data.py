@@ -1,14 +1,16 @@
 """OHLCV data fetching via Yahoo Finance, with a Stooq fallback and a disk cache."""
 
 import io
+import json
 import os
-import time
 import urllib.request
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 
+from ..common.cache import JsonCache
+from ..common.search import search_quotes
 from .engine import MIN_BARS
 
 REQUIRED_COLUMNS = ["open", "high", "low", "close", "volume"]
@@ -109,25 +111,24 @@ def search_candidates(query: str, max_results: int = 8) -> list[dict]:
     A plain ticker like "eni" often has no exact Yahoo symbol (the Italian
     listing is "ENI.MI") so this is what lets the caller offer the user a
     pick-list instead of guessing a single, possibly wrong, symbol.
-    """
-    query = query.strip()
-    if not query:
-        return []
 
+    Since M5 this delegates to the canonical requests-based search in
+    quantumanalyzer.common.search, keeping StockAnalyzer's historical
+    best-effort contract: an empty list on any failure, never an exception.
+    """
     try:
-        quotes = yf.Search(query, max_results=max_results, raise_errors=False).quotes
+        results = search_quotes(query, max_results=max_results)
     except Exception:
         return []
 
-    candidates = []
-    for quote in quotes:
-        symbol = quote.get("symbol")
-        if not symbol:
-            continue
-        name = quote.get("shortname") or quote.get("longname") or symbol
-        exchange = quote.get("exchDisp") or quote.get("exchange") or ""
-        candidates.append({"symbol": symbol, "name": name, "exchange": exchange})
-    return candidates
+    return [
+        {
+            "symbol": r["symbol"],
+            "name": r["name"],
+            "exchange": r["exchange_label"] or r["exchange"],
+        }
+        for r in results
+    ]
 
 
 def resolve_ticker(query: str) -> tuple[str, str]:
@@ -153,39 +154,58 @@ def resolve_ticker(query: str) -> tuple[str, str]:
 
 
 def _cache_dir() -> Path:
-    override = os.environ.get("STOCKANALYZER_CACHE_DIR")
+    # QUANTUMANALYZER_CACHE_DIR is the current override; the historical
+    # STOCKANALYZER_CACHE_DIR name still works for compatibility.
+    override = os.environ.get("QUANTUMANALYZER_CACHE_DIR") or os.environ.get("STOCKANALYZER_CACHE_DIR")
     if override:
         path = Path(override)
     else:
         xdg = os.environ.get("XDG_CACHE_HOME")
         base = Path(xdg) if xdg else Path.home() / ".cache"
-        path = base / "stockanalyzer"
+        path = base / "quantumanalyzer"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def _cache_path(ticker: str, period: str, interval: str) -> Path:
+# Since M5 the OHLCV cache runs on the shared SQLite JsonCache implementation
+# (same as the fundamentals cache, different TTL). Instances are keyed by
+# resolved db path so an env-var override (tests) gets a fresh database.
+_ohlcv_caches: dict[str, JsonCache] = {}
+
+
+def _ohlcv_cache() -> JsonCache:
+    db_path = str(_cache_dir() / "ohlcv_cache.db")
+    cache = _ohlcv_caches.get(db_path)
+    if cache is None:
+        cache = JsonCache(db_path, ttl_seconds=CACHE_TTL_SECONDS)
+        _ohlcv_caches[db_path] = cache
+    return cache
+
+
+def _cache_key(ticker: str, period: str, interval: str) -> str:
     safe_ticker = "".join(c if c.isalnum() else "_" for c in ticker.upper())
-    return _cache_dir() / f"{safe_ticker}_{period}_{interval}.csv"
+    return f"ohlcv_{safe_ticker}_{period}_{interval}"
 
 
-def _read_cache(cache_path: Path) -> pd.DataFrame | None:
-    if not cache_path.exists():
-        return None
-    age_seconds = time.time() - cache_path.stat().st_mtime
-    if age_seconds >= CACHE_TTL_SECONDS:
-        return None
+def _df_to_payload(df: pd.DataFrame) -> dict:
+    """OHLCV DataFrame -> payload JSON-serializzabile (orient='split')."""
+    return {"df": df.to_json(orient="split", date_format="iso"),
+            "index_name": df.index.name}
+
+
+def _payload_to_df(payload: dict) -> pd.DataFrame | None:
     try:
-        return pd.read_csv(cache_path, index_col=0, parse_dates=True)
+        raw = json.loads(payload["df"])
+        try:
+            index = pd.to_datetime(raw["index"])
+        except (ValueError, TypeError):
+            # intraday a cavallo di un cambio ora legale: offset misti
+            index = pd.to_datetime(raw["index"], utc=True)
+        df = pd.DataFrame(raw["data"], columns=raw["columns"], index=index)
+        df.index.name = payload.get("index_name")
+        return df
     except Exception:
-        return None
-
-
-def _write_cache(cache_path: Path, df: pd.DataFrame) -> None:
-    try:
-        df.to_csv(cache_path)
-    except Exception:
-        pass  # caching is best-effort; a failure here shouldn't break the fetch
+        return None  # payload corrotto: si rifetcha dalla rete
 
 
 def _fetch_from_yahoo(ticker: str, period: str, interval: str) -> pd.DataFrame:
@@ -251,11 +271,13 @@ def fetch_ohlcv(ticker: str, period: str = "1y", interval: str = "1d", use_cache
     so repeated analyses of the same ticker/period/interval don't always
     hit the network.
     """
-    cache_path = _cache_path(ticker, period, interval) if use_cache else None
-    if cache_path is not None:
-        cached = _read_cache(cache_path)
-        if cached is not None:
-            return cached
+    cache_key = _cache_key(ticker, period, interval) if use_cache else None
+    if cache_key is not None:
+        payload = _ohlcv_cache().get(cache_key)
+        if payload is not None:
+            cached = _payload_to_df(payload)
+            if cached is not None:
+                return cached
 
     errors = []
     df = None
@@ -278,7 +300,7 @@ def fetch_ohlcv(ticker: str, period: str = "1y", interval: str = "1d", use_cache
         raise ValueError(f"Dati incompleti per '{ticker}': mancano le colonne {missing}")
     df = df[REQUIRED_COLUMNS]
 
-    if cache_path is not None:
-        _write_cache(cache_path, df)
+    if cache_key is not None:
+        _ohlcv_cache().set(cache_key, _df_to_payload(df))
 
     return df

@@ -149,6 +149,7 @@ def validate_input_data(data: Dict[str, float]) -> Dict[str, str]:
 # con le API storiche di QuantumValue (views/worker chiamano
 # models.check_for_updates).
 from ..common.updater import check_for_updates, pick_release_asset  # noqa: E402
+from ..common.search import search_quotes as common_search_quotes  # noqa: E402
 
 
 # Decorator per retry con tenacity (fallback a requests se httpx non disponibile)
@@ -502,10 +503,14 @@ def evaluate_etf(
     else: return avg_score, "ETF DA EVITARE (Costoso/Illiquido)", col_bad, details
 
 
-@_retry_request
 def search_by_name(query: str, quote_types: Tuple[str, ...] = ('EQUITY', 'ETF')) -> List[Tuple[str, str, str]]:
     """
     Ricerca i ticker azionari ed ETF tramite endpoint pubblico di Yahoo Finance.
+
+    Dal M5 delega all'implementazione canonica in
+    quantumanalyzer.common.search (che porta con se' retry e timeout),
+    conservando l'API storica di QuantumValue: lista di tuple con
+    l'etichetta borsa mappata via YAHOO_EXCHANGE_MAP.
 
     Args:
         query (str): Testo da cercare (ticker, nome azienda, ISIN).
@@ -514,32 +519,19 @@ def search_by_name(query: str, quote_types: Tuple[str, ...] = ('EQUITY', 'ETF'))
 
     Returns:
         List[Tuple[str, str, str]]: Lista di (simbolo, nome, borsa).
+
+    Raises:
+        ValueError: Su errore di rete (dopo i retry).
     """
-    # Gestisce spazi e formattazione
-    query = query.strip().replace(" ", "+")
-    url: str = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10"
-
-    try:
-        response = requests.get(
-            url,
-            headers=config.HTTP_HEADERS,
-            timeout=config.HTTP_TIMEOUT
+    results = common_search_quotes(query, quote_types=quote_types)
+    return [
+        (
+            r['symbol'],
+            r['name'] or 'Sconosciuto',
+            config.YAHOO_EXCHANGE_MAP.get(r['exchange'], r['exchange'] or 'N/A'),
         )
-        response.raise_for_status()
-        data: dict = response.json()
-        results: List[Tuple[str, str, str]] = []
-
-        for quote in data.get('quotes', []):
-            if quote.get('quoteType') in quote_types:
-                symbol: str = quote.get('symbol', '').replace(" ", "")  # Rimuove spazi
-                name: str = quote.get('shortname', quote.get('longname', 'Sconosciuto'))
-                raw_exchange: str = quote.get('exchange', 'N/A')
-                mapped_exchange: str = config.YAHOO_EXCHANGE_MAP.get(raw_exchange, raw_exchange)
-                if symbol:
-                    results.append((symbol, name, mapped_exchange))
-        return results
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"Errore di rete durante la ricerca: {str(e)}")
+        for r in results
+    ]
 
 
 def _parse_perc(val: Any) -> float:

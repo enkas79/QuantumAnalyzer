@@ -50,17 +50,23 @@ def test_fetch_ohlcv_serves_from_cache_on_second_call():
 
 def test_fetch_ohlcv_refetches_after_cache_expires():
     with patch("quantumanalyzer.technical.data.yf.download", return_value=_yahoo_df()) as mock_download:
-        df = data.fetch_ohlcv("AAPL", period="1y", interval="1d")
-        cache_path = data._cache_path("AAPL", "1y", "1d")
-        # Backdate the cache file past the TTL instead of sleeping in the test.
-        old_time = cache_path.stat().st_mtime - data.CACHE_TTL_SECONDS - 1
-        import os
-
-        os.utime(cache_path, (old_time, old_time))
+        data.fetch_ohlcv("AAPL", period="1y", interval="1d")
+        # Backdate the cache row past the TTL instead of sleeping in the test.
+        assert data._ohlcv_cache().backdate(
+            data._cache_key("AAPL", "1y", "1d"), data.CACHE_TTL_SECONDS + 1
+        )
 
         data.fetch_ohlcv("AAPL", period="1y", interval="1d")
 
     assert mock_download.call_count == 2
+
+
+def test_fetch_ohlcv_cache_roundtrip_preserves_values_and_index():
+    with patch("quantumanalyzer.technical.data.yf.download", return_value=_yahoo_df()):
+        fresh = data.fetch_ohlcv("AAPL", period="1y", interval="1d")
+        cached = data.fetch_ohlcv("AAPL", period="1y", interval="1d")
+
+    pd.testing.assert_frame_equal(fresh, cached, check_freq=False)
 
 
 def test_fetch_ohlcv_bypasses_cache_when_disabled():

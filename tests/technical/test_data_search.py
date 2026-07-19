@@ -1,20 +1,24 @@
+"""L'adapter best-effort sopra la ricerca canonica (common.search):
+lista di dict su successo, lista vuota su qualsiasi errore, mai eccezioni."""
+
 from unittest.mock import patch
 
 from quantumanalyzer.technical.data import resolve_ticker, search_candidates
 
-
-class _FakeSearch:
-    def __init__(self, quotes):
-        self.quotes = quotes
+_SEARCH = "quantumanalyzer.technical.data.search_quotes"
 
 
-def test_search_candidates_maps_yahoo_quotes():
-    quotes = [
-        {"symbol": "ENI.MI", "shortname": "Eni S.p.A.", "exchDisp": "Milan"},
-        {"symbol": "E", "shortname": "Eni SpA", "exchDisp": "NYSE"},
-        {"shortname": "No symbol here"},  # should be skipped
+def _quote(symbol, name, exchange_label="", exchange=""):
+    return {"symbol": symbol, "name": name, "exchange": exchange,
+            "exchange_label": exchange_label, "quote_type": "EQUITY"}
+
+
+def test_search_candidates_maps_canonical_results():
+    results = [
+        _quote("ENI.MI", "Eni S.p.A.", exchange_label="Milan", exchange="MIL"),
+        _quote("E", "Eni SpA", exchange_label="NYSE", exchange="NYQ"),
     ]
-    with patch("quantumanalyzer.technical.data.yf.Search", return_value=_FakeSearch(quotes)):
+    with patch(_SEARCH, return_value=results):
         candidates = search_candidates("eni")
 
     assert candidates == [
@@ -23,18 +27,24 @@ def test_search_candidates_maps_yahoo_quotes():
     ]
 
 
+def test_search_candidates_falls_back_to_exchange_code_without_label():
+    with patch(_SEARCH, return_value=[_quote("AAPL", "Apple", exchange="NMS")]):
+        assert search_candidates("apple")[0]["exchange"] == "NMS"
+
+
 def test_search_candidates_returns_empty_list_on_no_query():
+    # La ricerca canonica restituisce [] senza chiamare la rete
     assert search_candidates("   ") == []
 
 
 def test_search_candidates_returns_empty_list_on_network_failure():
-    with patch("quantumanalyzer.technical.data.yf.Search", side_effect=RuntimeError("boom")):
+    # La ricerca canonica solleva ValueError dopo i retry: l'adapter la assorbe
+    with patch(_SEARCH, side_effect=ValueError("boom")):
         assert search_candidates("eni") == []
 
 
 def test_resolve_ticker_picks_best_match_from_search():
-    quotes = [{"symbol": "ENI.MI", "shortname": "Eni S.p.A.", "exchDisp": "Milan"}]
-    with patch("quantumanalyzer.technical.data.yf.Search", return_value=_FakeSearch(quotes)):
+    with patch(_SEARCH, return_value=[_quote("ENI.MI", "Eni S.p.A.", "Milan")]):
         symbol, name = resolve_ticker("eni")
 
     assert symbol == "ENI.MI"
@@ -42,7 +52,7 @@ def test_resolve_ticker_picks_best_match_from_search():
 
 
 def test_resolve_ticker_falls_back_to_uppercased_query_when_no_match():
-    with patch("quantumanalyzer.technical.data.yf.Search", return_value=_FakeSearch([])):
+    with patch(_SEARCH, return_value=[]):
         symbol, name = resolve_ticker("madeupticker")
 
     assert symbol == "MADEUPTICKER"

@@ -14,11 +14,11 @@ from quantumanalyzer.fundamental import cache
 def temp_cache(tmp_path, monkeypatch):
     """Cache isolata su un database temporaneo, richiusa a fine test."""
     monkeypatch.setattr(cache, "CACHE_DB_PATH", str(tmp_path / "test_cache.db"))
-    monkeypatch.setattr(cache, "_conn", None)
+    monkeypatch.setattr(cache, "_cache", None)
     yield cache
-    if cache._conn is not None:
-        cache._conn.close()
-        cache._conn = None
+    if cache._cache is not None:
+        cache._cache.close()
+        cache._cache = None
 
 
 def test_set_and_get_roundtrip(temp_cache):
