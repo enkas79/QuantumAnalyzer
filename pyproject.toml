@@ -44,11 +44,15 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "pytest-qt>=4.2",
     "mypy>=1.11.2",
 ]
-# Framework GUI: aggiungere qui SOLO dopo la decisione di unificazione
-# (PySide6 o PyQt6, non entrambi) descritta in MIGRATION_PLAN.md.
-gui = []
+# GUI unificata su PySide6 (decisione M2 del MIGRATION_PLAN: LGPL, ed era
+# gia' il framework di StockAnalyzer). matplotlib serve alla tab Grafico.
+gui = [
+    "PySide6>=6.6",
+    "matplotlib>=3.7",
+]
 
 [project.scripts]
 quantumanalyzer-cli = "quantumanalyzer.technical.cli:main"
