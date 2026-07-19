@@ -5,9 +5,11 @@ trend-confirmation tecnico) e [QuantumValue](https://github.com/enkas79/QuantumV
 (scoring value investing e screening dei multipli di mercato) in un'unica
 base di codice Python.
 
-**Stato attuale: scaffold + logica "core" portata, GUI non ancora unificata.**
-Vedi [MIGRATION_PLAN.md](MIGRATION_PLAN.md) per il piano dettagliato dei passi
-restanti e per il ragionamento dietro le scelte architetturali.
+**Stato attuale: app funzionante con GUI unificata (PySide6).** La finestra
+principale ha una barra ticker condivisa e due tab — Analisi Tecnica e Analisi
+Fondamentale — che analizzano lo stesso titolo in parallelo. Vedi
+[MIGRATION_PLAN.md](MIGRATION_PLAN.md) per lo stato di avanzamento e i lavori
+residui (pipeline installer, ulteriore deduplicazione dei servizi).
 
 ## Perche' questa fusione
 
@@ -34,36 +36,34 @@ programmi separati che vanno aperti e incrociati a mano.
 
 ```
 src/quantumanalyzer/
-    technical/       # Portato da StockAnalyzer: engine.py, indicators.py,
-                      # data.py, risk.py, backtest.py, cli.py, updater.py.
-                      # Import gia' relativi nel pacchetto originale: nessuna
-                      # modifica alla logica, solo lo spostamento di cartella.
-    fundamental/      # Portato da QuantumValue: models.py, config.py,
-                      # cache.py, utils.py (la sola parte non-GUI di src/).
-                      # Import adattati da stile "flat + sys.path hack" a
-                      # import relativi di pacchetto (`from . import config`).
-    gui/              # Placeholder. Le due GUI originali sono su framework
-                      # Qt diversi (PySide6 vs PyQt6) e vanno prima unificate:
-                      # vedi MIGRATION_PLAN.md.
+    technical/        # Da StockAnalyzer: engine, indicators, data, risk,
+                      # backtest, cli, updater (adapter sul checker comune).
+    fundamental/      # Da QuantumValue: models (scoring value + campanelli
+                      # d'allarme), config, cache, utils.
+    common/           # Servizi condivisi: controllo aggiornamenti GitHub
+                      # (updater.py), importer dati legacy (legacy_import.py).
+    gui/              # GUI unificata PySide6: app.py (finestra principale +
+                      # entry point), technical_view/_workers (da
+                      # StockAnalyzer), fundamental_view/_workers (da
+                      # QuantumValue, portata PyQt6 -> PySide6), theme.py.
 tests/
-    technical/        # Portati da StockAnalyzer (esclusi i test della GUI)
-    fundamental/       # Portati da QuantumValue (esclusi i test di GUI/controller)
+    technical/  fundamental/  common/  gui/
 ```
 
-Entrambi i pacchetti (`technical` e `fundamental`) sono indipendenti fra loro
-e completamente funzionanti: non condividono ancora codice (stessa logica di
-retry HTTP, stesso pattern di controllo aggiornamenti GitHub, ecc. sono
-duplicati fra i due — vedi il piano di migrazione per la roadmap di
-deduplicazione).
-
-## Installazione e uso (solo libreria, no GUI)
+## Installazione e uso
 
 ```bash
 git clone https://github.com/enkas79/QuantumAnalyzer.git
 cd QuantumAnalyzer
-pip install -e ".[dev]"
-pytest
+pip install -e ".[dev,gui]"
+pytest                      # suite completa (i test GUI girano offscreen)
+quantumanalyzer-gui         # app completa (tecnica + fondamentale)
+quantumanalyzer-cli AAPL    # sola analisi tecnica da terminale
 ```
+
+Al primo avvio, la GUI recupera automaticamente le API key e le preferenze di
+un'eventuale installazione precedente di QuantumValue (migrazione one-shot,
+senza sovrascrivere nulla di gia' configurato).
 
 ```python
 # Analisi tecnica (trend confirmation)
@@ -84,10 +84,6 @@ triggered, verdict, color, details = evaluate_red_flags(
 )
 print(verdict)
 ```
-
-Non esiste ancora un entry point GUI unificato (`quantumanalyzer-gui`): per
-usare le interfacce grafiche originali, i due repository sorgente restano
-disponibili e pienamente funzionanti nel frattempo.
 
 ## Licenza
 

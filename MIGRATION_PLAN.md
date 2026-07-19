@@ -1,10 +1,29 @@
 # Piano di migrazione: fusione StockAnalyzer + QuantumValue
 
-Questo documento descrive cosa e' gia' stato fatto in questo scaffold e cosa
-resta da fare per arrivare a un'unica app GUI che sostituisca [StockAnalyzer]
+Questo documento descrive cosa e' gia' stato fatto e cosa resta da fare per
+arrivare a un'unica app GUI che sostituisca [StockAnalyzer]
 (https://github.com/enkas79/StockAnalyzer) e [QuantumValue]
 (https://github.com/enkas79/QuantumValue). E' pensato per essere eseguito a
 pezzi (un milestone = una PR), non tutto insieme.
+
+## Stato di avanzamento
+
+| Milestone | Stato |
+|---|---|
+| M1 — Scaffold logica core | ✅ Fatto |
+| M2 — Porting GUI QuantumValue a PySide6 | ✅ Fatto (13 test GUI portati e verdi; le librerie Qt di sistema si sono rivelate installabili, quindi il porting e' stato testato davvero, non solo compilato) |
+| M3 — Spostamento GUI StockAnalyzer | ✅ Fatto (17 test GUI portati) |
+| M4 — Finestra unificata con barra ticker condivisa | ✅ Fatto (entry point `quantumanalyzer-gui`; prima iterazione "sottile": le tab conservano i propri menu) |
+| M5 — Deduplicazione servizi | ✅ Parziale: controllo aggiornamenti unificato in `common/updater.py` (con fix di un bug latente RetryError). Restano: ricerca ticker, cache condivisa, unificazione watchlist/recenti |
+| M6 — CI | ✅ Parziale: `ci.yml` esegue l'intera suite (GUI incluse, offscreen). Resta: pipeline installer unificata (PyInstaller + Inno Setup/.deb/.dmg) |
+| M7 — Migrazione dati utenti esistenti | ✅ Fatto (`common/legacy_import.py`, one-shot all'avvio della GUI) |
+| M8 — Destino dei repo originali | ⏳ Decisione dell'autore |
+
+Lavori residui in ordine di valore: pipeline installer (M6), ricerca ticker e
+cache condivise (M5), unificazione watchlist/ticker recenti (M4.3), mypy in CI.
+
+Il resto del documento e' il piano originale, conservato come riferimento per
+i dettagli e le motivazioni delle scelte.
 
 ## Stato attuale (M1 — fatto in questo scaffold)
 
