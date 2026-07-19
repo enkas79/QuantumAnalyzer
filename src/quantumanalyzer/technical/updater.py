@@ -3,30 +3,25 @@
 Deliberately does not download or replace anything on its own: replacing an
 installed binary automatically is platform-specific and risky, so this only
 tells the caller a newer version exists and where to get it.
+
+Since M5 this is a thin adapter over the canonical checker in
+quantumanalyzer.common.updater (requests + tenacity retry + per-platform
+asset pick), keeping StockAnalyzer's historical best-effort API:
+UpdateInfo on a newer release, None on anything else, never raising.
+It also now points at the unified QuantumAnalyzer repo instead of the old
+StockAnalyzer one.
 """
 
-import json
-import urllib.request
 from dataclasses import dataclass
 
-GITHUB_REPO = "enkas79/StockAnalyzer"
-_RELEASES_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+from ..common.updater import check_for_updates as _check_for_updates_impl
+from ..fundamental.config import GITHUB_REPO
 
 
 @dataclass
 class UpdateInfo:
     version: str
     url: str
-
-
-def _parse_version(tag: str) -> tuple[int, ...]:
-    """"v1.2.3" / "1.2.3" -> (1, 2, 3); non-numeric segments become 0."""
-    cleaned = tag.lstrip("vV")
-    parts = []
-    for chunk in cleaned.split("."):
-        digits = "".join(c for c in chunk if c.isdigit())
-        parts.append(int(digits) if digits else 0)
-    return tuple(parts)
 
 
 def check_for_update(current_version: str, timeout: float = 5.0) -> UpdateInfo | None:
@@ -37,19 +32,12 @@ def check_for_update(current_version: str, timeout: float = 5.0) -> UpdateInfo |
     crashes startup.
     """
     try:
-        request = urllib.request.Request(
-            _RELEASES_API_URL, headers={"Accept": "application/vnd.github+json"}
+        available, tag, url = _check_for_updates_impl(
+            current_version, GITHUB_REPO, timeout=int(timeout)
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - fixed https host
-            payload = json.load(response)
     except Exception:
         return None
 
-    tag = payload.get("tag_name")
-    url = payload.get("html_url")
-    if not tag or not url:
-        return None
-
-    if _parse_version(tag) > _parse_version(current_version):
+    if available and url:
         return UpdateInfo(version=tag.lstrip("vV"), url=url)
     return None

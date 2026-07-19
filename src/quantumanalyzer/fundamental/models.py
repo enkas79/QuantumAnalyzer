@@ -8,7 +8,6 @@ Autore: Enrico Martini
 Versione: portato da QuantumValue 0.7.14 in QuantumAnalyzer
 """
 
-import sys
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -145,30 +144,11 @@ def validate_input_data(data: Dict[str, float]) -> Dict[str, str]:
     return warnings
 
 
-def pick_release_asset(assets: List[Dict[str, Any]], platform: str = sys.platform) -> str:
-    """
-    Sceglie dall'elenco degli asset di una GitHub Release quello adatto
-    alla piattaforma corrente.
-
-    Args:
-        assets: Lista di asset della release (API GitHub).
-        platform: Identificatore piattaforma (sys.platform).
-
-    Returns:
-        str: URL di download diretto, o stringa vuota se nessun asset combacia.
-    """
-    if platform.startswith("win"):
-        suffix = ".exe"
-    elif platform == "darwin":
-        suffix = "_macos.zip"
-    else:
-        suffix = ".deb"
-
-    for asset in assets:
-        name = str(asset.get('name', '')).lower()
-        if name.endswith(suffix):
-            return str(asset.get('browser_download_url', ''))
-    return ""
+# Controllo aggiornamenti e scelta asset: implementazione canonica spostata
+# in quantumanalyzer.common.updater (M5); ri-esportati qui per compatibilita'
+# con le API storiche di QuantumValue (views/worker chiamano
+# models.check_for_updates).
+from ..common.updater import check_for_updates, pick_release_asset  # noqa: E402
 
 
 # Decorator per retry con tenacity (fallback a requests se httpx non disponibile)
@@ -178,51 +158,6 @@ def _retry_request(func):
         return retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))(func)
     else:
         return func
-
-
-@_retry_request
-def check_for_updates(current_version: str, repo_path: str) -> Tuple[bool, str, str]:
-    """
-    Verifica la presenza di una nuova release su GitHub via API pubblica.
-
-    Args:
-        current_version (str): Versione attuale dell'applicazione.
-        repo_path (str): Path del repository GitHub (es. 'utente/repo').
-
-    Returns:
-        Tuple[bool, str, str]: (aggiornamento_disponibile, tag_versione, url_download).
-        L'URL punta all'asset della release adatto alla piattaforma corrente
-        (installer .exe, pacchetto .deb o bundle macOS), con fallback alla
-        pagina HTML della release se nessun asset combacia.
-    """
-    api_url: str = f"https://api.github.com/repos/{repo_path}/releases/latest"
-    try:
-        response = requests.get(
-            api_url,
-            headers=config.HTTP_HEADERS,
-            timeout=config.HTTP_TIMEOUT
-        )
-        if response.status_code == 404:
-            return False, current_version, ""
-        response.raise_for_status()
-        data: dict = response.json()
-        latest_tag: str = data.get('tag_name', '').replace('v', '')
-        html_url: str = pick_release_asset(data.get('assets', [])) or data.get('html_url', '')
-
-        if not latest_tag:
-            return False, current_version, ""
-
-        def parse_version(v: str) -> Tuple[int, ...]:
-            try:
-                return tuple(map(int, v.split('.')))
-            except ValueError:
-                return (0, 0, 0)
-
-        curr_v_clean: str = current_version.replace('v', '')
-        update_available: bool = parse_version(latest_tag) > parse_version(curr_v_clean)
-        return update_available, latest_tag, html_url
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"Impossibile verificare gli aggiornamenti: {str(e)}")
 
 
 def calculate_metrics(data: Dict[str, float]) -> Dict[str, Union[float, str]]:
