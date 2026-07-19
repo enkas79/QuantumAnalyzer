@@ -65,3 +65,6 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 pythonpath = ["src"]
 addopts = "--cov=src/quantumanalyzer --cov-report=term-missing"
+# La GUI unificata e' su PySide6: blocca pytest-qt su quell'API anche se
+# nell'ambiente e' installato pure PyQt6 (residuo del progetto originale).
+qt_api = "pyside6"

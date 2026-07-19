@@ -18,8 +18,8 @@ from typing import Any, Union
 from logging.handlers import RotatingFileHandler
 
 try:
-    from PyQt6.QtWidgets import QMessageBox, QApplication
-    from PyQt6.QtCore import QThread
+    from PySide6.QtWidgets import QMessageBox, QApplication
+    from PySide6.QtCore import QThread
     PYQT_AVAILABLE = True
 except ImportError:
     PYQT_AVAILABLE = False
