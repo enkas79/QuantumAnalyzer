@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTabWidget, QVBoxLayout, QWidget
 )
 
+from ..common.legacy_import import migrate_legacy_data
 from ..fundamental import utils
 from ..fundamental.config import APP_NAME, AUTHOR, VERSION
 from . import theme
@@ -146,6 +147,12 @@ def main() -> None:
     # la tab tecnica gestisce il proprio tema con lo stylesheet di finestra,
     # che dentro il suo sottoalbero ha precedenza su quello di applicazione.
     settings = QSettings(AUTHOR.replace(" ", ""), APP_NAME.replace(" ", ""))
+
+    # Primo avvio dopo il passaggio da QuantumValue: recupera API key dal
+    # vecchio servizio keyring e preferenze dal vecchio namespace QSettings
+    # (one-shot, non sovrascrive nulla di gia' configurato).
+    migrate_legacy_data(settings)
+
     theme.apply_theme(app, str(settings.value("theme", "light")))
 
     window = UnifiedMainWindow()
