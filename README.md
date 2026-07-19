@@ -5,11 +5,14 @@ trend-confirmation tecnico) e [QuantumValue](https://github.com/enkas79/QuantumV
 (scoring value investing e screening dei multipli di mercato) in un'unica
 base di codice Python.
 
-**Stato attuale: app funzionante con GUI unificata (PySide6).** La finestra
-principale ha una barra ticker condivisa e due tab — Analisi Tecnica e Analisi
-Fondamentale — che analizzano lo stesso titolo in parallelo. Vedi
-[MIGRATION_PLAN.md](MIGRATION_PLAN.md) per lo stato di avanzamento e i lavori
-residui (pipeline installer, ulteriore deduplicazione dei servizi).
+**Stato attuale: app completa (GUI PySide6 unificata, CI, pipeline
+installer).** La finestra principale ha una barra ticker condivisa (con
+cronologia suggerita) e due tab — Analisi Tecnica e Analisi Fondamentale —
+che analizzano lo stesso titolo in parallelo. I servizi comuni (controllo
+aggiornamenti, ricerca ticker, cache) sono unificati in
+`quantumanalyzer.common`. Un push che modifica `version.txt` su `main`
+costruisce gli installer (.exe/.dmg/.deb) e pubblica la release. Vedi
+[MIGRATION_PLAN.md](MIGRATION_PLAN.md) per la storia della migrazione.
 
 ## Perche' questa fusione
 
@@ -41,7 +44,9 @@ src/quantumanalyzer/
     fundamental/      # Da QuantumValue: models (scoring value + campanelli
                       # d'allarme), config, cache, utils.
     common/           # Servizi condivisi: controllo aggiornamenti GitHub
-                      # (updater.py), importer dati legacy (legacy_import.py).
+                      # (updater.py), ricerca ticker (search.py), cache
+                      # SQLite a TTL (cache.py), importer dati legacy
+                      # (legacy_import.py).
     gui/              # GUI unificata PySide6: app.py (finestra principale +
                       # entry point), technical_view/_workers (da
                       # StockAnalyzer), fundamental_view/_workers (da
