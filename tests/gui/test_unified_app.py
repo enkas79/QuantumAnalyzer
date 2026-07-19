@@ -64,6 +64,20 @@ def test_analyze_both_resets_stale_resolved_symbol(window, monkeypatch):
     assert window.technical._resolved is None
 
 
+def test_analyze_both_updates_recent_ticker_history(window, monkeypatch):
+    monkeypatch.setattr(window.technical, "_on_analyze_clicked", lambda: None)
+    monkeypatch.setattr(window.fundamental, "_on_search_requested", lambda: None)
+
+    for ticker in ["AAPL", "ENI.MI", "AAPL"]:
+        window.shared_ticker.setText(ticker)
+        window._on_analyze_both()
+
+    # Ultimo analizzato in testa, senza duplicati
+    assert window.recent_tickers == ["AAPL", "ENI.MI"]
+    assert window.completer_model.stringList() == ["AAPL", "ENI.MI"]
+    assert window.settings.value("shared_recent_tickers") == ["AAPL", "ENI.MI"]
+
+
 def test_analyze_both_with_empty_ticker_warns_and_does_not_dispatch(window, monkeypatch):
     calls = []
     monkeypatch.setattr(window.technical, "_on_analyze_clicked", lambda: calls.append("tech"))

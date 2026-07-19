@@ -32,7 +32,7 @@ SETTINGS_KEYS_TO_COPY = ("theme", "recent_tickers")
 # Chiave marcatore nelle nuove impostazioni: la migrazione gira una volta sola
 MARKER_KEY = "legacy_import_done"
 
-_EMPTY_VALUES = (None, "", [])
+_EMPTY_VALUES: tuple = (None, "", [])
 
 
 def migrate_legacy_data(

@@ -18,17 +18,18 @@ Autore: Enrico Martini
 import sys
 from typing import Optional
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QStringListModel, Qt
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
-    QApplication, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
-    QPushButton, QTabWidget, QVBoxLayout, QWidget
+    QApplication, QCompleter, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+    QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
 )
 
 from ..common.legacy_import import migrate_legacy_data
 from ..fundamental import utils
 from ..fundamental.config import APP_NAME, AUTHOR, VERSION
 from . import theme
+from .fundamental_view import MAX_RECENT_TICKERS
 from .fundamental_view import MainWindow as FundamentalWindow
 from .technical_view import MainWindow as TechnicalWindow
 
@@ -56,6 +57,21 @@ class UnifiedMainWindow(QMainWindow):
             "Es. AAPL, ENI.MI — avvia analisi tecnica e fondamentale insieme")
         self.shared_ticker.setMaximumWidth(420)
         self.shared_ticker.returnPressed.connect(self._on_analyze_both)
+
+        # Cronologia degli ultimi ticker analizzati dalla barra condivisa,
+        # persistita fra le sessioni e suggerita mentre si digita. Decisione
+        # M4.3: watchlist (tab tecnica) e recenti (tab fondamentale) restano
+        # separate — servono a scopi diversi (titoli da ri-analizzare vs
+        # cronologia di ricerca); questa e' la cronologia unificata della
+        # barra condivisa.
+        recent = self.settings.value("shared_recent_tickers", [])
+        if isinstance(recent, str):
+            recent = [recent] if recent else []
+        self.recent_tickers: list = [str(t) for t in (recent or [])][:MAX_RECENT_TICKERS]
+        self.completer_model = QStringListModel(self.recent_tickers)
+        completer = QCompleter(self.completer_model, self)
+        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.shared_ticker.setCompleter(completer)
         bar.addWidget(self.shared_ticker)
 
         self.btn_analyze_both = QPushButton("Analizza (Tecnica + Fondamentale)")
@@ -101,6 +117,13 @@ class UnifiedMainWindow(QMainWindow):
         act_about.triggered.connect(self._show_about)
         m_help.addAction(act_about)
 
+    def _add_recent_ticker(self, ticker: str) -> None:
+        """Aggiorna cronologia, suggerimenti del completer e persistenza."""
+        self.recent_tickers = [ticker] + [t for t in self.recent_tickers if t != ticker]
+        self.recent_tickers = self.recent_tickers[:MAX_RECENT_TICKERS]
+        self.completer_model.setStringList(self.recent_tickers)
+        self.settings.setValue("shared_recent_tickers", self.recent_tickers)
+
     def _show_about(self) -> None:
         QMessageBox.information(
             self, f"Informazioni — {APP_NAME}",
@@ -122,6 +145,7 @@ class UnifiedMainWindow(QMainWindow):
             QMessageBox.warning(self, "Attenzione", "Inserire un ticker valido.")
             return
         self.settings.setValue("shared_ticker", ticker)
+        self._add_recent_ticker(ticker)
 
         # Vista tecnica: azzera l'eventuale simbolo risolto dalla ricerca
         # precedente, altrimenti l'analisi riuserebbe il vecchio titolo.

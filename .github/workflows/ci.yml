@@ -34,3 +34,8 @@ jobs:
       env:
         QT_QPA_PLATFORM: offscreen
       run: pytest -q
+
+    # I pacchetti core sono mypy-clean; gui/ e' escluso via pyproject
+    # (shorthand-enum PySide6 respinti dagli stub, validi a runtime).
+    - name: Controllo tipi (mypy)
+      run: mypy src/quantumanalyzer/common src/quantumanalyzer/fundamental src/quantumanalyzer/technical

@@ -73,3 +73,12 @@ addopts = "--cov=src/quantumanalyzer --cov-report=term-missing"
 # La GUI unificata e' su PySide6: blocca pytest-qt su quell'API anche se
 # nell'ambiente e' installato pure PyQt6 (residuo del progetto originale).
 qt_api = "pyside6"
+
+[tool.mypy]
+ignore_missing_imports = true
+# Il pacchetto gui/ e' escluso per ora: il codice GUI (in gran parte non
+# tipizzato, ereditato dai progetti originali) usa gli shorthand-enum di
+# PySide6 (es. Qt.UserRole) validi a runtime ma respinti dagli stub.
+# I tre pacchetti core (common, fundamental, technical) sono mypy-clean e
+# la CI li controlla.
+exclude = "src/quantumanalyzer/gui/"
