@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QMessageBox, QGroupBox, QGridLayout,
     QDialog, QTextBrowser, QDialogButtonBox, QTableWidget, QRadioButton,
     QTableWidgetItem, QAbstractItemView, QHeaderView, QScrollArea, QTabWidget, QStackedWidget, QApplication,
-    QFileDialog, QCompleter, QMenu
+    QFileDialog, QCompleter, QMenu, QFrame
 )
 from PySide6.QtGui import (
     QAction, QActionGroup, QFont, QDesktopServices, QScreen, QIcon,
@@ -719,7 +719,9 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.input_ticker)
 
         self.btn_fetch = QPushButton(" Cerca/Scarica Dati")
-        self.btn_fetch.setMaximumWidth(160)
+        # Nessun setMaximumWidth: una larghezza fissa piu' stretta del testo
+        # lo tagliava (es. "Cerca/Scarica Dat"), QPushButton non fa l'ellissi
+        # automatica. Si dimensiona sul proprio sizeHint.
         self.btn_fetch.setStyleSheet("background-color: #2e86de; color: white; padding: 5px 15px;")
         self.btn_fetch.clicked.connect(self._on_search_requested)
         search_layout.addWidget(self.btn_fetch)
@@ -752,7 +754,10 @@ class MainWindow(QMainWindow):
     def _create_input_section_azioni(self, parent: QWidget) -> None:
         layout = QVBoxLayout(parent)
         layout.setContentsMargins(0, 0, 0, 0)
-        input_group = QGroupBox("2. Dati Finanziari Aziendali & Quotazione")
+        # "&&" per mostrare un "&" letterale: un "&" singolo in un titolo Qt
+        # viene interpretato come marcatore di mnemonic (la lettera dopo
+        # sparisce/si sottolinea invece di mostrare la "&").
+        input_group = QGroupBox("2. Dati Finanziari Aziendali && Quotazione")
         grid_layout = QGridLayout(input_group)
 
         self.lbl_company_name = QLabel("Azienda: --")
@@ -814,7 +819,7 @@ class MainWindow(QMainWindow):
     def _create_input_section_etf(self, parent: QWidget) -> None:
         layout = QVBoxLayout(parent)
         layout.setContentsMargins(0, 0, 0, 0)
-        input_group = QGroupBox("2. Profilo ETF & Composizione")
+        input_group = QGroupBox("2. Profilo ETF && Composizione")  # "&&" = "&" letterale
         grid_layout = QGridLayout(input_group)
 
         self.lbl_etf_name = QLabel("Fondo/ETF: --")
@@ -848,8 +853,31 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(input_group)
 
+    def _make_scrollable(self, tab: QWidget) -> QVBoxLayout:
+        """Installa una QScrollArea a riempimento di `tab` e restituisce il
+        QVBoxLayout del suo widget di contenuto: nei metodi _setup_tab_*
+        sotto cambia solo questa riga, il resto del layout resta invariato.
+
+        Necessario perche' il contenuto di queste tab (in particolare
+        Occasioni in Borsa, con i 4 campanelli d'allarme) puo' richiedere
+        piu' altezza di quella disponibile quando questa finestra e'
+        incorporata nella GUI unificata (barra ticker condivisa + doppio
+        menu + doppia barra tab riducono lo spazio verticale rispetto
+        all'uso standalone): senza scroll, Qt comprime le label fino a
+        pochi pixel di altezza invece di lasciarle leggibili.
+        """
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll)
+        return QVBoxLayout(content)
+
     def _setup_tab_value(self, tab: QWidget) -> None:
-        layout = QVBoxLayout(tab)
+        layout = self._make_scrollable(tab)
         metrics_group = QGroupBox("Metriche Analizzate")
         inner_layout = QVBoxLayout(metrics_group)
         self.res_labels: Dict[str, QLabel] = {}
@@ -886,7 +914,7 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
     def _setup_tab_opportunity(self, tab: QWidget) -> None:
-        layout = QVBoxLayout(tab)
+        layout = self._make_scrollable(tab)
         opp_group = QGroupBox("Valutazione Multipli di Mercato")
         inner_layout = QVBoxLayout(opp_group)
         self.opp_labels: Dict[str, QLabel] = {}
@@ -953,7 +981,7 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
     def _setup_tab_etf(self, tab: QWidget) -> None:
-        layout = QVBoxLayout(tab)
+        layout = self._make_scrollable(tab)
         etf_group = QGroupBox("Analisi Profilo ETF")
         inner_layout = QVBoxLayout(etf_group)
         self.etf_res_labels: Dict[str, QLabel] = {}
@@ -1189,6 +1217,31 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(
                 f"Attenzione: {len(warnings)} valori sospetti evidenziati (passaci sopra col mouse).")
 
+    def _style_label(self, label: QLabel, color: str, *, size_pt: int = 0, bold: bool = False, family: str = "") -> None:
+        """Imposta il colore di un'etichetta ridichiarando sempre le
+        proprieta' di font che le servono, invece di affidarsi al solo
+        setFont() fatto in fase di costruzione.
+
+        Questa finestra e' pensata per essere incorporata anche nella GUI
+        unificata di QuantumAnalyzer (piu' livelli di tab annidati: vedi
+        gui/app.py). In quel contesto, il primo setStyleSheet() con il solo
+        colore fa perdere silenziosamente la dimensione impostata con
+        setFont() (Qt passa a risolvere il font via cascata CSS, che qui
+        eredita un font minuscolo dagli antenati invece di usare quello
+        assegnato al widget) — le etichette dei punteggi finivano compresse
+        a 1-2px di altezza, illeggibili. Ridichiarare qui font-size/family/
+        weight ad ogni aggiornamento evita il problema alla radice, in modo
+        indipendente da quanto la finestra sia annidata.
+        """
+        parts = [f"color: {color};"]
+        if family:
+            parts.append(f"font-family: '{family}';")
+        if size_pt:
+            parts.append(f"font-size: {size_pt}pt;")
+        if bold:
+            parts.append("font-weight: bold;")
+        label.setStyleSheet(" ".join(parts))
+
     def _display_results(self, results_core: Dict[str, Union[float, str]], raw_data: Dict[str, float]) -> None:
         ey, roic, ev_eb = results_core.get('ey', 0.0), results_core.get('roic', 0.0), results_core.get('ev_ebitda', 0.0)
         pe, ps, peg = raw_data.get('pe', 0.0), raw_data.get('ps', 0.0), raw_data.get('peg', 0.0)
@@ -1197,7 +1250,7 @@ class MainWindow(QMainWindow):
             lbl = self.res_labels[k]
             if isinstance(v, (int, float)):
                 lbl.setText(f"{v:.2f}{suf}")
-                lbl.setStyleSheet(f"color: {theme.color('value')};")
+                self._style_label(lbl, theme.color('value'), size_pt=12, bold=True, family="Consolas")
             else:
                 lbl.setText(str(v))
                 lbl.setStyleSheet("color: #e74c3c; font-size: 11px;")
@@ -1210,7 +1263,7 @@ class MainWindow(QMainWindow):
             lbl = self.opp_labels[k]
             if v > 0:
                 lbl.setText(f"{v:.2f}{suf}")
-                lbl.setStyleSheet(f"color: {theme.color('value')};")
+                self._style_label(lbl, theme.color('value'), size_pt=12, bold=True, family="Consolas")
             else:
                 lbl.setText("N.D.")
                 lbl.setStyleSheet("color: #e74c3c; font-size: 11px;")
@@ -1222,14 +1275,14 @@ class MainWindow(QMainWindow):
         lbl_ev_occ = self.opp_labels['ev_ebitda_occ']
         if isinstance(ev_eb, (int, float)):
             lbl_ev_occ.setText(f"{ev_eb:.2f}x")
-            lbl_ev_occ.setStyleSheet(f"color: {theme.color('value')};")
+            self._style_label(lbl_ev_occ, theme.color('value'), size_pt=12, bold=True, family="Consolas")
         else:
             lbl_ev_occ.setText("N.D.")
             lbl_ev_occ.setStyleSheet("color: #e74c3c; font-size: 11px;")
 
         score, txt, color, details = models.evaluate_core(ey, roic, ev_eb)
         self.lbl_score.setText(f"{score} / 10")
-        self.lbl_score.setStyleSheet(f"color: {color};")
+        self._style_label(self.lbl_score, color, size_pt=26, bold=True, family="Segoe UI")
         self.lbl_recommendation.setText(txt)
         self.lbl_recommendation.setStyleSheet(f"color: {color}; font-weight: bold;")
 
@@ -1240,7 +1293,7 @@ class MainWindow(QMainWindow):
 
         opp_score, opp_txt, opp_color, opp_evals = models.evaluate_opportunity(pe, ps, peg, ev_eb)
         self.lbl_opp_score.setText(f"{opp_score} / 10")
-        self.lbl_opp_score.setStyleSheet(f"color: {opp_color};")
+        self._style_label(self.lbl_opp_score, opp_color, size_pt=26, bold=True, family="Segoe UI")
         self.lbl_opp_recommendation.setText(opp_txt)
         self.lbl_opp_recommendation.setStyleSheet(f"color: {opp_color}; font-weight: bold;")
 
@@ -1255,7 +1308,7 @@ class MainWindow(QMainWindow):
             self._last_fcf_history
         )
         self.lbl_flags_summary.setText(flags_txt)
-        self.lbl_flags_summary.setStyleSheet(f"color: {flags_color};")
+        self._style_label(self.lbl_flags_summary, flags_color, size_pt=12, bold=True, family="Segoe UI")
         for k in ['pe_vs_history', 'ps_extreme', 'margin_contraction', 'fcf_negative']:
             if k in flags_details:
                 self.flag_labels[k].setText(flags_details[k]['text'])
@@ -1377,7 +1430,7 @@ class MainWindow(QMainWindow):
 
         score, txt, color, details = models.evaluate_etf(ter, aum, ret_1y)
         self.lbl_etf_score.setText(f"{score} / 10")
-        self.lbl_etf_score.setStyleSheet(f"color: {color};")
+        self._style_label(self.lbl_etf_score, color, size_pt=26, bold=True, family="Segoe UI")
         self.lbl_etf_recommendation.setText(txt)
         self.lbl_etf_recommendation.setStyleSheet(f"color: {color}; font-weight: bold;")
 
@@ -1392,21 +1445,21 @@ class MainWindow(QMainWindow):
         for lbl in self.opp_labels.values(): lbl.setText("--")
         for lbl in self.opp_eval_labels.values(): lbl.setText("")
         self.lbl_score.setText("- / 10")
-        self.lbl_score.setStyleSheet(f"color: {theme.color('muted')};")
+        self._style_label(self.lbl_score, theme.color('muted'), size_pt=26, bold=True, family="Segoe UI")
         self.lbl_recommendation.setText("Dati incompleti o errati.")
         self.lbl_recommendation.setStyleSheet(f"color: {theme.color('muted')};")
         self.lbl_opp_score.setText("- / 10")
-        self.lbl_opp_score.setStyleSheet(f"color: {theme.color('muted')};")
+        self._style_label(self.lbl_opp_score, theme.color('muted'), size_pt=26, bold=True, family="Segoe UI")
         self.lbl_opp_recommendation.setText("Dati incompleti o errati.")
         self.lbl_opp_recommendation.setStyleSheet(f"color: {theme.color('muted')};")
         for lbl in self.flag_labels.values(): lbl.setText("N/D")
         self.lbl_flags_summary.setText("Dati incompleti o errati.")
-        self.lbl_flags_summary.setStyleSheet(f"color: {theme.color('muted')};")
+        self._style_label(self.lbl_flags_summary, theme.color('muted'), size_pt=12, bold=True, family="Segoe UI")
 
     def _reset_etf_results(self) -> None:
         for lbl in self.etf_res_labels.values(): lbl.setText("--")
         for lbl in self.etf_eval_labels.values(): lbl.setText("")
         self.lbl_etf_score.setText("- / 10")
-        self.lbl_etf_score.setStyleSheet(f"color: {theme.color('muted')};")
+        self._style_label(self.lbl_etf_score, theme.color('muted'), size_pt=26, bold=True, family="Segoe UI")
         self.lbl_etf_recommendation.setText("Dati incompleti o errati.")
         self.lbl_etf_recommendation.setStyleSheet(f"color: {theme.color('muted')};")

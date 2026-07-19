@@ -30,6 +30,25 @@ def test_embeds_both_views_as_tabs(window):
     assert isinstance(window.tabs.widget(1), FundamentalWindow)
 
 
+def test_fundamental_own_exit_button_is_hidden(window):
+    # Ridondante (questa finestra ha gia' il suo File > Esci) e rotto se
+    # cliccato qui: self.close() su un widget non top-level lo nasconde
+    # soltanto invece di chiudere l'app.
+    assert window.fundamental.btn_exit.isVisible() is False
+
+
+def test_closing_the_unified_window_saves_technical_settings(window, monkeypatch, tmp_path):
+    """Regressione: TechnicalWindow salva watchlist/tema solo nel proprio
+    closeEvent, che Qt non richiama automaticamente sui widget figli non
+    top-level quando la finestra unificata si chiude. Senza propagare la
+    chiusura, uscire dall'app perderebbe silenziosamente le modifiche alla
+    watchlist fatte nella sessione."""
+    calls = []
+    monkeypatch.setattr(window.technical, "_save_settings", lambda: calls.append(True))
+    window.close()
+    assert calls == [True]
+
+
 def test_embedded_menubars_are_not_native(window):
     # Su macOS i menubar nativi delle finestre embedded si contenderebbero
     # la barra di sistema: devono restare in-window.

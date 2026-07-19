@@ -95,12 +95,50 @@ class UnifiedMainWindow(QMainWindow):
         self.tabs.addTab(self.fundamental, "Analisi Fondamentale (Value)")
         layout.addWidget(self.tabs)
 
+        # Le etichette di punteggio della vista fondamentale usano un font
+        # grande impostato con setFont() in fase di costruzione, quando
+        # 'fundamental' non aveva ancora un parent. Il reparenting in questa
+        # finestra a piu' livelli di tab annidati (fatto da addTab() sopra)
+        # fa si' che Qt risolva da qui in poi il font di quelle etichette
+        # via cascata CSS invece di usare il QFont assegnato, ereditando una
+        # dimensione minuscola dagli antenati. _reset_results()/
+        # _reset_etf_results() ridichiarano quel font esplicitamente via
+        # stylesheet (vedi _style_label in fundamental_view.py): chiamarli
+        # qui, subito dopo l'incorporamento, ripara lo stato "in attesa di
+        # dati" iniziale invece di mostrarlo per un istante compresso.
+        self.fundamental._reset_results()
+        self.fundamental._reset_etf_results()
+
+        # Il grande bottone rosso "Esci dal Programma" della vista
+        # fondamentale ha senso in QuantumValue standalone, ma qui e'
+        # ridondante (questa finestra ha gia' il suo File > Esci) e in piu'
+        # rotto: chiama self.close() su 'fundamental', che essendo un widget
+        # non top-level si limiterebbe a nascondersi invece di chiudere
+        # l'app, lasciando la tab Fondamentale vuota. Nascosto: recupera
+        # anche i suoi ~60px di margine verticale, scarso in questa
+        # finestra (barra ticker + doppio menu + doppia barra tab).
+        self.fundamental.btn_exit.hide()
+
         self.setCentralWidget(central)
         self._build_menu()
 
         last = str(self.settings.value("shared_ticker", ""))
         if last:
             self.shared_ticker.setText(last)
+
+    def closeEvent(self, event) -> None:
+        """Propaga la chiusura alla tab tecnica prima di uscire.
+
+        TechnicalWindow salva watchlist/tema solo nel proprio closeEvent
+        (vedi technical_view.py: _save_settings() non ha altri punti di
+        chiamata). Qt non inoltra closeEvent ai widget figli non top-level
+        quando questa finestra si chiude, quindi senza questa chiamata
+        esplicita quel salvataggio non scatterebbe mai in QuantumAnalyzer:
+        chiudere l'app dal menu File > Esci perderebbe silenziosamente le
+        modifiche alla watchlist fatte nella sessione.
+        """
+        self.technical.close()
+        super().closeEvent(event)
 
     def _build_menu(self) -> None:
         """Menu minimale: le funzioni specifiche restano nei menu delle tab."""
