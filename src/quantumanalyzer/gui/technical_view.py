@@ -31,10 +31,12 @@ from PySide6.QtWidgets import (
 )
 
 from .. import __version__
+from ..fundamental.config import APP_NAME, AUTHOR
 from ..technical import indicators
 from ..technical.data import INTERVAL_LABELS, PERIOD_CHOICES, default_interval, estimated_bars, valid_intervals
 from ..technical.engine import AnalysisResult, RSI_OVERBOUGHT, RSI_OVERSOLD
 from ..technical.risk import position_size
+from . import theme as shared_theme
 from .technical_workers import AnalysisWorker, SearchWorker, UpdateCheckWorker, WatchlistWorker
 
 SEARCH_DEBOUNCE_MS = 350
@@ -52,228 +54,6 @@ DIRECTION_COLORS = {
     "neutral": LEG_COLORS["neutral"],
 }
 
-LIGHT_STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #eef0f2;
-    color: #24262a;
-    font-size: 13px;
-}
-QTabWidget::pane {
-    border: 1px solid #d6d9dd;
-    border-radius: 8px;
-    background: #ffffff;
-    top: -1px;
-}
-QTabBar::tab {
-    background: #e2e4e7;
-    color: #45484d;
-    padding: 8px 18px;
-    border: 1px solid #d6d9dd;
-    border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    margin-right: 2px;
-}
-QTabBar::tab:selected {
-    background: #ffffff;
-    color: #101113;
-    font-weight: 600;
-}
-QTabBar::tab:hover { background: #eef0f3; }
-QGroupBox {
-    background: #ffffff;
-    border: 1px solid #d6d9dd;
-    border-radius: 10px;
-    margin-top: 16px;
-    padding: 14px 10px 10px 10px;
-}
-QGroupBox::title {
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    left: 12px;
-    padding: 0 6px;
-    color: #101113;
-    font-weight: 600;
-}
-QPushButton {
-    background-color: #2f6fed;
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    padding: 7px 18px;
-    font-weight: 600;
-}
-QPushButton:hover { background-color: #255ed1; }
-QPushButton:pressed { background-color: #1d4bab; }
-QPushButton:disabled { background-color: #aab8d6; color: #eef1f8; }
-QLineEdit, QComboBox, QDoubleSpinBox, QListWidget, QTableWidget {
-    background: #ffffff;
-    border: 1px solid #d6d9dd;
-    border-radius: 6px;
-    padding: 4px 6px;
-    selection-background-color: #2f6fed;
-    selection-color: #ffffff;
-}
-QListWidget, QTableWidget {
-    alternate-background-color: #f4f5f7;
-}
-QTableWidget {
-    gridline-color: #e3e5e8;
-}
-QTableWidget::item, QListWidget::item {
-    padding: 4px;
-}
-QHeaderView::section {
-    background: #f2f3f5;
-    color: #33363b;
-    padding: 6px;
-    border: none;
-    border-bottom: 1px solid #d6d9dd;
-    font-weight: 600;
-}
-QProgressBar {
-    border: 1px solid #d6d9dd;
-    border-radius: 6px;
-    text-align: center;
-    background-color: #ffffff;
-    min-height: 20px;
-    color: #101113;
-}
-QProgressBar::chunk {
-    background-color: #2f6fed;
-    border-radius: 5px;
-}
-QStatusBar {
-    background: #f2f3f5;
-    border-top: 1px solid #d6d9dd;
-}
-QCheckBox { spacing: 6px; }
-QMenuBar { background: #eef0f2; }
-QMenuBar::item:selected { background: #e2e4e7; }
-QMenu {
-    background: #ffffff;
-    border: 1px solid #d6d9dd;
-}
-QMenu::item:selected {
-    background: #2f6fed;
-    color: #ffffff;
-}
-"""
-
-DARK_STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #1e1f22;
-    color: #dfe1e4;
-    font-size: 13px;
-}
-QTabWidget::pane {
-    border: 1px solid #35373c;
-    border-radius: 8px;
-    background: #26282c;
-    top: -1px;
-}
-QTabBar::tab {
-    background: #2a2c30;
-    color: #a9adb3;
-    padding: 8px 18px;
-    border: 1px solid #35373c;
-    border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    margin-right: 2px;
-}
-QTabBar::tab:selected {
-    background: #26282c;
-    color: #f0f1f2;
-    font-weight: 600;
-}
-QTabBar::tab:hover { background: #303236; }
-QGroupBox {
-    background: #26282c;
-    border: 1px solid #35373c;
-    border-radius: 10px;
-    margin-top: 16px;
-    padding: 14px 10px 10px 10px;
-    color: #dfe1e4;
-}
-QGroupBox::title {
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    left: 12px;
-    padding: 0 6px;
-    color: #f0f1f2;
-    font-weight: 600;
-}
-QPushButton {
-    background-color: #4c86ff;
-    color: #0c0d0e;
-    border: none;
-    border-radius: 6px;
-    padding: 7px 18px;
-    font-weight: 600;
-}
-QPushButton:hover { background-color: #6b9bff; }
-QPushButton:pressed { background-color: #3a6fe0; }
-QPushButton:disabled { background-color: #3d4552; color: #7d8794; }
-QLineEdit, QComboBox, QDoubleSpinBox, QListWidget, QTableWidget {
-    background: #1e1f22;
-    color: #dfe1e4;
-    border: 1px solid #35373c;
-    border-radius: 6px;
-    padding: 4px 6px;
-    selection-background-color: #4c86ff;
-    selection-color: #0c0d0e;
-}
-QListWidget, QTableWidget {
-    alternate-background-color: #28292d;
-}
-QTableWidget {
-    gridline-color: #303236;
-}
-QTableWidget::item, QListWidget::item {
-    padding: 4px;
-}
-QHeaderView::section {
-    background: #2a2c30;
-    color: #dfe1e4;
-    padding: 6px;
-    border: none;
-    border-bottom: 1px solid #35373c;
-    font-weight: 600;
-}
-QProgressBar {
-    border: 1px solid #35373c;
-    border-radius: 6px;
-    text-align: center;
-    background-color: #1e1f22;
-    min-height: 20px;
-    color: #dfe1e4;
-}
-QProgressBar::chunk {
-    background-color: #4c86ff;
-    border-radius: 5px;
-}
-QStatusBar {
-    background: #2a2c30;
-    border-top: 1px solid #35373c;
-    color: #dfe1e4;
-}
-QCheckBox { spacing: 6px; }
-QMenuBar { background: #1e1f22; color: #dfe1e4; }
-QMenuBar::item:selected { background: #303236; }
-QMenu {
-    background: #26282c;
-    color: #dfe1e4;
-    border: 1px solid #35373c;
-}
-QMenu::item:selected {
-    background: #4c86ff;
-    color: #0c0d0e;
-}
-"""
-
-THEMES = {"light": LIGHT_STYLESHEET, "dark": DARK_STYLESHEET}
-MUTED_TEXT_COLOR = {"light": "#54585f", "dark": "#aeb4bd"}
 CHART_THEME = {
     "light": {"bg": "#ffffff", "text": "#17181a", "grid": "#d3d7dc"},
     "dark": {"bg": "#1b1c1f", "text": "#e8e9eb", "grid": "#34363c"},
@@ -423,7 +203,13 @@ class MainWindow(QMainWindow):
         self._update_worker: UpdateCheckWorker | None = None
         self._theme = "light"
         self._last_chart: tuple[str, object] | None = None  # (symbol, df) for theme redraws
-        self._settings = QSettings("StockAnalyzer", "StockAnalyzer")
+        # Stesso namespace QSettings della vista fondamentale (non piu' il
+        # separato "StockAnalyzer"/"StockAnalyzer" di prima del restyle):
+        # la chiave "theme" e' condivisa, cosi' il tema resta uno solo per
+        # tutta l'app invece di due valori indipendenti che potevano
+        # divergere. ticker/period/interval/watchlist restano proprie di
+        # questa vista, nessuna collisione di chiave con l'altra.
+        self._settings = QSettings(AUTHOR.replace(" ", ""), APP_NAME.replace(" ", ""))
         self._build_menu()
         self._build_ui()
         self._apply_theme(self._theme)
@@ -468,14 +254,19 @@ class MainWindow(QMainWindow):
         self.help_menu.addAction(self.about_action)
 
     def _apply_theme(self, theme: str):
-        theme = theme if theme in THEMES else "light"
+        theme = theme if theme in shared_theme.THEMES else "light"
         self._theme = theme
 
+        # Stylesheet applicato tramite il modulo tema condiviso (vedi
+        # gui/theme.py): prima del restyle questa vista chiamava
+        # app.setStyleSheet() con un proprio foglio di stile indipendente da
+        # quello della vista fondamentale, e i due si sovrascrivevano a
+        # vicenda in base a quale veniva applicato per ultimo.
         app = QApplication.instance()
-        if app is not None:
-            app.setStyleSheet(THEMES[theme])
+        if isinstance(app, QApplication):
+            shared_theme.apply_theme(app, theme)
 
-        muted = MUTED_TEXT_COLOR[theme]
+        muted = shared_theme.color('muted')
         self.candles_label.setStyleSheet(f"color: {muted}; font-weight: normal;")
         self.symbol_label.setStyleSheet(f"color: {muted}; font-weight: normal;")
         self.watchlist_progress_label.setStyleSheet(f"color: {muted}; font-weight: normal;")
@@ -485,6 +276,15 @@ class MainWindow(QMainWindow):
 
         self._style_chart_axes()
         self.chart_canvas.draw()
+
+    def hide_ticker_row(self) -> None:
+        """Nasconde etichetta/campo ticker e il bottone Analizza: usato
+        dalla GUI unificata (gui/app.py), dove la barra ticker condivisa li
+        sostituisce. Periodo/intervallo/leg opzionali restano visibili,
+        non hanno equivalente nella barra condivisa."""
+        self.ticker_label.hide()
+        self.ticker_input.hide()
+        self.analyze_button.hide()
 
     def _build_guide_dialog(self) -> QDialog:
         dialog = QDialog(self)
@@ -572,7 +372,8 @@ class MainWindow(QMainWindow):
         self.analyze_button = QPushButton("Analizza")
         self.analyze_button.clicked.connect(self._on_analyze_clicked)
 
-        form_row.addWidget(QLabel("Ticker:"))
+        self.ticker_label = QLabel("Ticker:")
+        form_row.addWidget(self.ticker_label)
         form_row.addWidget(self.ticker_input, stretch=1)
         form_row.addWidget(QLabel("Periodo:"))
         form_row.addWidget(self.period_combo)

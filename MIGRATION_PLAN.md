@@ -13,15 +13,58 @@ pezzi (un milestone = una PR), non tutto insieme.
 | M1 — Scaffold logica core | ✅ Fatto |
 | M2 — Porting GUI QuantumValue a PySide6 | ✅ Fatto (13 test GUI portati e verdi; le librerie Qt di sistema si sono rivelate installabili, quindi il porting e' stato testato davvero, non solo compilato) |
 | M3 — Spostamento GUI StockAnalyzer | ✅ Fatto (17 test GUI portati) |
-| M4 — Finestra unificata con barra ticker condivisa | ✅ Fatto (entry point `quantumanalyzer-gui`; le tab conservano i propri menu; barra condivisa con cronologia/completer persistente). Decisione M4.3: watchlist tecnica e recenti fondamentali restano separate (scopi diversi), la cronologia unificata e' quella della barra condivisa |
+| M4 — Finestra unificata con barra ticker condivisa | ✅ Fatto, poi ristilizzata (vedi sotto): entry point `quantumanalyzer-gui`, barra condivisa con cronologia/completer persistente e switch Azioni/ETF. Decisione M4.3: watchlist tecnica e recenti fondamentali restano separate (scopi diversi), la cronologia unificata e' quella della barra condivisa |
 | M5 — Deduplicazione servizi | ✅ Fatto: controllo aggiornamenti (`common/updater.py`, con fix di un bug latente RetryError), ricerca ticker (`common/search.py`) e cache (`common/cache.py`, JsonCache parametrizzata per TTL, con fix del conteggio scaduti nelle statistiche) unificati; i moduli storici delegano mantenendo le API originali |
 | M6 — CI e packaging | ✅ Fatto: `ci.yml` (suite completa offscreen + mypy sui pacchetti core) e `build-installers.yml` (PyInstaller + NSIS/.dmg/.deb su modifica di version.txt, release taggata con asset scelti dall'updater in-app). La pipeline installer e' scritta ma potra' essere collaudata solo dal primo bump reale di version.txt |
 | M7 — Migrazione dati utenti esistenti | ✅ Fatto (`common/legacy_import.py`, one-shot all'avvio della GUI) |
+| Restyle (post-M4) — menu unico, tema unificato, spazio | ✅ Fatto: vedi sezione dedicata piu' sotto |
 | M8 — Destino dei repo originali | ⏳ Decisione dell'autore |
 
 Residui minori, non bloccanti: estendere mypy anche a `gui/` (oggi escluso:
 shorthand-enum PySide6 respinti dagli stub ma validi a runtime) e collaudare
 la pipeline installer con il primo rilascio reale.
+
+## Restyle post-M4: menu unico, tema unificato, spazio recuperato
+
+La prima versione di M4 era volutamente "sottile": le due viste incorporate
+conservavano ciascuna il proprio menu bar, la propria casella di ricerca
+ticker e il proprio sistema di tema. Con l'uso reale sono emersi tre problemi
+concreti, non solo estetici:
+
+1. **Guide e configurazione API "mancanti".** Non lo erano — esistevano gia'
+   in entrambe le viste — ma erano sepolte in una *seconda* barra menu per
+   tab (una sotto l'altra sotto quella della finestra unificata), facile da
+   non notare. Risolto: `UnifiedMainWindow._build_menu()` ora e' l'unico
+   menu (File / Visualizza / Guida / Aiuto) e consolida entrambe le guide,
+   il reset delle API key, l'export CSV e il controllo aggiornamenti; i due
+   menu bar interni (`technical.menuBar()`, `fundamental.menuBar()`) sono
+   nascosti, non solo "non nativi".
+2. **Due sistemi di tema indipendenti che si sovrascrivevano a vicenda.**
+   `technical_view.py` aveva un proprio `THEMES`/`_apply_theme()` che
+   chiamava `app.setStyleSheet(...)`; `fundamental`'s `theme.py` faceva lo
+   stesso in modo indipendente. Chiamare entrambi (come succede incorporando
+   le due viste) faceva vincere in modo silenzioso quale veniva applicato
+   per ultimo. Risolto: `gui/theme.py` e' ora l'unica fonte — piu' completo
+   (copre anche i widget solo-tecnici: QComboBox, QProgressBar, QListWidget,
+   QScrollBar) e visivamente piu' moderno (angoli arrotondati, stati
+   hover/pressed coerenti). `technical_view.py` vi si appoggia invece di
+   avere un proprio foglio di stile; le due viste condividono anche lo
+   stesso namespace QSettings per la chiave "theme" (prima "StockAnalyzer"/
+   "StockAnalyzer" separato da quello di QuantumValue).
+3. **Spazio verticale sprecato da controlli duplicati.** La casella di
+   ricerca "1. Ricerca" della vista fondamentale e la riga ticker della
+   vista tecnica duplicavano la barra condivisa gia' introdotta in M4.
+   Risolto: entrambe nascoste (`hide_search_box()` /  `hide_ticker_row()`);
+   l'unico controllo senza equivalente condiviso — lo switch Azioni/ETF —
+   e' stato spostato (non duplicato) nella barra in alto, riusando i radio
+   button esistenti via reparenting Qt. Il bottone "Esci dal Programma"
+   della vista fondamentale (gia' nascosto per il bug M4 sul closeEvent) ha
+   contribuito anche lui a liberare spazio.
+
+Copertura test: 12 nuovi test in `tests/gui/test_unified_app.py` coprono il
+menu consolidato (ogni voce chiama davvero il metodo giusto sulla vista
+giusta), il reparenting dello switch Azioni/ETF, i controlli nascosti e la
+coerenza del tema fra le due viste.
 
 Il resto del documento e' il piano originale, conservato come riferimento per
 i dettagli e le motivazioni delle scelte.

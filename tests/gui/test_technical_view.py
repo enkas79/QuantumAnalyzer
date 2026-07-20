@@ -7,11 +7,15 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication, QMessageBox, QTextBrowser
 
 from quantumanalyzer.technical.engine import AnalysisResult, Leg
-from quantumanalyzer.gui.technical_view import DARK_STYLESHEET, MainWindow
+from quantumanalyzer.gui import theme
+from quantumanalyzer.gui.technical_view import MainWindow
 from quantumanalyzer.technical.updater import UpdateInfo
 
-SETTINGS_ORG = "StockAnalyzer"
-SETTINGS_APP = "StockAnalyzer"
+# Stesso namespace QSettings condiviso con la vista fondamentale dal
+# restyle (non piu' il separato "StockAnalyzer"/"StockAnalyzer" di prima):
+# vedi gui/technical_view.py MainWindow.__init__.
+SETTINGS_ORG = "EnricoMartini"
+SETTINGS_APP = "QuantumAnalyzer"
 
 
 @pytest.fixture(autouse=True)
@@ -200,7 +204,8 @@ def test_switching_to_dark_theme_updates_app_stylesheet_and_menu(qtbot):
     assert window._theme == "dark"
     assert window.dark_theme_action.isChecked()
     assert not window.light_theme_action.isChecked()
-    assert QApplication.instance().styleSheet() == DARK_STYLESHEET
+    assert theme.current_theme() == "dark"
+    assert QApplication.instance().styleSheet() == theme._STYLESHEET.substitute(theme.THEMES["dark"])
 
 
 def test_theme_choice_persists_across_windows(qtbot):

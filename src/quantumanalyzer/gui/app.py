@@ -1,5 +1,5 @@
 """
-Finestra principale unificata di QuantumAnalyzer (milestone M4).
+Finestra principale unificata di QuantumAnalyzer (milestone M4 + restyle).
 
 Un'unica finestra con un campo ticker condiviso e due tab che ospitano le
 finestre esistenti: "Analisi Tecnica" (portata da StockAnalyzer) e "Analisi
@@ -7,19 +7,24 @@ Fondamentale" (portata da QuantumValue). Il campo condiviso smista il ticker
 a entrambe le viste, che avviano i rispettivi fetch in parallelo sui propri
 worker QThread: nessuna delle due analisi blocca l'altra.
 
-Prima iterazione volutamente "sottile" (vedi MIGRATION_PLAN.md, M4): le due
-viste embedded conservano i propri menu (tema, export CSV, API key, leg
-opzionali, guida) e le proprie impostazioni QSettings. La deduplicazione dei
-servizi condivisi (controllo aggiornamenti, ricerca ticker) e' il passo M5.
+Le due viste embedded conservano la propria logica ma non piu' la propria
+GUI di cornice: i menu bar interni sono nascosti (le voci utili — guide,
+tema, API key, export CSV, aggiornamenti — sono consolidate nell'unico menu
+di questa finestra, altrimenti erano davvero presenti ma sepolte in una
+seconda barra menu per tab, poco distinguibile dalla prima) e le rispettive
+caselle di ricerca ticker sono nascoste (sostituite dalla barra condivisa
+sopra), mantenendo pero' i controlli che non hanno equivalente condiviso
+(periodo/intervallo/leg opzionali per la tecnica, switch Azioni/ETF per la
+fondamentale — quest'ultimo spostato qui nella barra condivisa, invece di
+restare isolato in un box altrimenti vuoto).
 
 Autore: Enrico Martini
 """
 
 import sys
-from typing import Optional
 
 from PySide6.QtCore import QSettings, QStringListModel, Qt
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtGui import QAction, QActionGroup, QFont
 from PySide6.QtWidgets import (
     QApplication, QCompleter, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
@@ -29,13 +34,13 @@ from ..common.legacy_import import migrate_legacy_data
 from ..fundamental import utils
 from ..fundamental.config import APP_NAME, AUTHOR, VERSION
 from . import theme
-from .fundamental_view import MAX_RECENT_TICKERS
+from .fundamental_view import GuideDialog, MAX_RECENT_TICKERS
 from .fundamental_view import MainWindow as FundamentalWindow
 from .technical_view import MainWindow as TechnicalWindow
 
 
 class UnifiedMainWindow(QMainWindow):
-    """Contenitore delle due analisi con barra ticker condivisa."""
+    """Contenitore delle due analisi con barra ticker condivisa e menu unico."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -44,7 +49,18 @@ class UnifiedMainWindow(QMainWindow):
 
         central = QWidget()
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(10)
+
+        # --- Le due viste embedded, create prima della barra condivisa: -----
+        # quest'ultima riusa lo switch Azioni/ETF della vista fondamentale
+        # (vedi sotto), quindi deve gia' esistere. I menu bar interni sono
+        # nascosti: le loro voci utili confluiscono nel menu unico costruito
+        # da _build_menu() piu' sotto.
+        self.technical = TechnicalWindow()
+        self.technical.menuBar().hide()
+        self.fundamental = FundamentalWindow()
+        self.fundamental.menuBar().hide()
 
         # --- Barra ticker condivisa -----------------------------------------
         bar = QHBoxLayout()
@@ -74,22 +90,29 @@ class UnifiedMainWindow(QMainWindow):
         self.shared_ticker.setCompleter(completer)
         bar.addWidget(self.shared_ticker)
 
-        self.btn_analyze_both = QPushButton("Analizza (Tecnica + Fondamentale)")
+        # Switch Azioni/ETF: sposta qui (non duplica) i radio button della
+        # vista fondamentale, l'unica parte del suo box "1. Ricerca" senza
+        # equivalente nella barra condivisa. _on_search_requested() li legge
+        # gia' direttamente (self.rb_azione.isChecked()), quindi funzionano
+        # identici alla posizione originale.
+        bar.addSpacing(12)
+        bar.addWidget(self.fundamental.rb_azione)
+        bar.addWidget(self.fundamental.rb_etf)
+        bar.addSpacing(12)
+
+        self.btn_analyze_both = QPushButton("Analizza")
         self.btn_analyze_both.clicked.connect(self._on_analyze_both)
         bar.addWidget(self.btn_analyze_both)
         bar.addStretch()
         layout.addLayout(bar)
 
-        # --- Tab con le due viste embedded ----------------------------------
-        # QMainWindow e' un QWidget: le due finestre originali vengono ospitate
-        # cosi' come sono, conservando menu interni e status bar. I menubar
-        # nativi (macOS) vanno disattivati, altrimenti le finestre embedded si
-        # contenderebbero la barra di sistema.
-        self.technical = TechnicalWindow()
-        self.technical.menuBar().setNativeMenuBar(False)
-        self.fundamental = FundamentalWindow()
-        self.fundamental.menuBar().setNativeMenuBar(False)
+        # Con rb_azione/rb_etf gia' spostati sopra, il resto del box di
+        # ricerca fondamentale (ticker + bottone fetch) e la riga ticker
+        # tecnica duplicano la barra condivisa: nascosti.
+        self.technical.hide_ticker_row()
+        self.fundamental.hide_search_box()
 
+        # --- Tab con le due viste embedded ----------------------------------
         self.tabs = QTabWidget()
         self.tabs.addTab(self.technical, "Analisi Tecnica (Trend)")
         self.tabs.addTab(self.fundamental, "Analisi Fondamentale (Value)")
@@ -115,8 +138,7 @@ class UnifiedMainWindow(QMainWindow):
         # rotto: chiama self.close() su 'fundamental', che essendo un widget
         # non top-level si limiterebbe a nascondersi invece di chiudere
         # l'app, lasciando la tab Fondamentale vuota. Nascosto: recupera
-        # anche i suoi ~60px di margine verticale, scarso in questa
-        # finestra (barra ticker + doppio menu + doppia barra tab).
+        # anche i suoi ~60px di margine verticale.
         self.fundamental.btn_exit.hide()
 
         self.setCentralWidget(central)
@@ -141,19 +163,66 @@ class UnifiedMainWindow(QMainWindow):
         super().closeEvent(event)
 
     def _build_menu(self) -> None:
-        """Menu minimale: le funzioni specifiche restano nei menu delle tab."""
+        """Menu unico dell'app: consolida le voci prima sparse nei due menu
+        bar interni (ciascuno nascosto, vedi __init__), cosi' guide e
+        configurazione API — gia' presenti ma poco visibili in una seconda
+        barra menu duplicata — diventano immediate da trovare."""
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
 
         m_file = menubar.addMenu("&File")
-        act_quit = QAction("Esci", self)
+        export_action = QAction("Esporta Analisi &Fondamentale (CSV)...", self)
+        export_action.triggered.connect(self.fundamental._export_csv)
+        m_file.addAction(export_action)
+        m_file.addSeparator()
+        reset_api_action = QAction("&Reimposta API Dati Esterni (FMP/Twelve Data/EODHD)...", self)
+        reset_api_action.triggered.connect(self.fundamental._reset_api_key)
+        m_file.addAction(reset_api_action)
+        m_file.addSeparator()
+        act_quit = QAction("&Esci", self)
         act_quit.triggered.connect(self.close)
         m_file.addAction(act_quit)
 
+        m_view = menubar.addMenu("&Visualizza")
+        theme_group = QActionGroup(self)
+        theme_group.setExclusive(True)
+        for label, name in [("Tema &Chiaro", "light"), ("Tema &Scuro", "dark")]:
+            action = QAction(label, self, checkable=True)
+            action.setChecked(theme.current_theme() == name)
+            action.triggered.connect(lambda _checked, n=name: self._set_theme(n))
+            theme_group.addAction(action)
+            m_view.addAction(action)
+
+        m_guide = menubar.addMenu("&Guida")
+        guide_tech_action = QAction("Guida &Analisi Tecnica...", self)
+        guide_tech_action.triggered.connect(self.technical._show_guide)
+        m_guide.addAction(guide_tech_action)
+        guide_fund_action = QAction("Guida Analisi &Fondamentale...", self)
+        guide_fund_action.triggered.connect(lambda: GuideDialog(self.fundamental).exec())
+        m_guide.addAction(guide_fund_action)
+
         m_help = menubar.addMenu("&Aiuto")
-        act_about = QAction("Informazioni", self)
+        update_action = QAction("&Verifica Aggiornamenti", self)
+        update_action.triggered.connect(lambda: self.fundamental._check_for_updates(silent=False))
+        m_help.addAction(update_action)
+        m_help.addSeparator()
+        act_about = QAction("&Informazioni", self)
         act_about.triggered.connect(self._show_about)
         m_help.addAction(act_about)
+
+    def _set_theme(self, name: str) -> None:
+        """Applica il tema scelto a entrambe le viste incorporate.
+
+        Chiama gli stessi metodi che le due viste usavano dai propri menu
+        (ora nascosti): entrambi si appoggiano all'unico
+        gui.theme.apply_theme() da quando i due stylesheet indipendenti
+        sono stati unificati, quindi non si sovrascrivono piu' a vicenda;
+        chiamarli entrambi assicura che anche gli aggiornamenti di colore
+        per-widget di ciascuna vista (etichette in tinta, ridisegno del
+        grafico) restino allineati al tema scelto.
+        """
+        self.fundamental._set_theme(name)
+        self.technical._apply_theme(name)
 
     def _add_recent_ticker(self, ticker: str) -> None:
         """Aggiorna cronologia, suggerimenti del completer e persistenza."""
@@ -191,9 +260,10 @@ class UnifiedMainWindow(QMainWindow):
         self.technical.ticker_input.setText(ticker)
         self.technical._on_analyze_clicked()
 
-        # Vista fondamentale: il ticker condiviso e' un'azione (per gli ETF
-        # resta il flusso dedicato dentro la tab fondamentale).
-        self.fundamental.rb_azione.setChecked(True)
+        # Vista fondamentale: rispetta lo switch Azioni/ETF della barra
+        # condivisa (rb_azione/rb_etf, spostati li' in __init__) invece di
+        # forzare sempre la modalita' Azioni; _on_search_requested() legge
+        # gia' internamente quale dei due e' selezionato.
         self.fundamental.input_ticker.setText(ticker)
         self.fundamental._on_search_requested()
 
@@ -205,9 +275,6 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # Tema applicato a livello di applicazione (comportamento QuantumValue);
-    # la tab tecnica gestisce il proprio tema con lo stylesheet di finestra,
-    # che dentro il suo sottoalbero ha precedenza su quello di applicazione.
     settings = QSettings(AUTHOR.replace(" ", ""), APP_NAME.replace(" ", ""))
 
     # Primo avvio dopo il passaggio da QuantumValue: recupera API key dal
@@ -215,6 +282,8 @@ def main() -> None:
     # (one-shot, non sovrascrive nulla di gia' configurato).
     migrate_legacy_data(settings)
 
+    # Tema unico applicato a livello di applicazione (vedi gui/theme.py):
+    # sia la vista tecnica sia quella fondamentale vi si appoggiano.
     theme.apply_theme(app, str(settings.value("theme", "light")))
 
     window = UnifiedMainWindow()

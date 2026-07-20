@@ -694,7 +694,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Pronto.")
 
     def _create_search_section(self, layout: QVBoxLayout) -> None:
-        search_group = QGroupBox("1. Ricerca (Azienda o ETF)")
+        self.search_group = QGroupBox("1. Ricerca (Azienda o ETF)")
+        search_group = self.search_group
         search_layout = QHBoxLayout(search_group)
         self.rb_azione = QRadioButton("Azioni")
         self.rb_azione.setChecked(True)
@@ -727,6 +728,14 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.btn_fetch)
         search_layout.addStretch()
         layout.addWidget(search_group)
+
+    def hide_search_box(self) -> None:
+        """Nasconde l'intero box "1. Ricerca": usato dalla GUI unificata
+        (gui/app.py), dove la barra ticker condivisa lo sostituisce del
+        tutto. Chiamare solo DOPO aver eventualmente rimosso rb_azione/
+        rb_etf da qui (es. spostandoli nella barra condivisa), altrimenti
+        finiscono nascosti insieme al resto del box."""
+        self.search_group.hide()
 
     def _toggle_asset_mode(self) -> None:
         is_azione = self.rb_azione.isChecked()

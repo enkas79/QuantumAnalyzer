@@ -8,11 +8,15 @@ base di codice Python.
 **Stato attuale: app completa (GUI PySide6 unificata, CI, pipeline
 installer).** La finestra principale ha una barra ticker condivisa (con
 cronologia suggerita) e due tab — Analisi Tecnica e Analisi Fondamentale —
-che analizzano lo stesso titolo in parallelo. I servizi comuni (controllo
-aggiornamenti, ricerca ticker, cache) sono unificati in
-`quantumanalyzer.common`. Un push che modifica `version.txt` su `main`
-costruisce gli installer (.exe/.dmg/.deb) e pubblica la release. Vedi
-[MIGRATION_PLAN.md](MIGRATION_PLAN.md) per la storia della migrazione.
+che analizzano lo stesso titolo in parallelo. Un unico menu (File /
+Visualizza / Guida / Aiuto) e un unico tema chiaro/scuro coprono entrambe le
+viste — guide, configurazione API esterne (FMP/Twelve Data/EODHD) e verifica
+aggiornamenti sono tutte raggiungibili da li', senza menu duplicati. I
+servizi comuni (controllo aggiornamenti, ricerca ticker, cache) sono
+unificati in `quantumanalyzer.common`. Un push che modifica `version.txt` su
+`main` costruisce gli installer (.exe/.dmg/.deb) e pubblica la release. Vedi
+[MIGRATION_PLAN.md](MIGRATION_PLAN.md) per la storia della migrazione e il
+restyle post-M4.
 
 ## Perche' questa fusione
 
