@@ -21,13 +21,14 @@ restare isolato in un box altrimenti vuoto).
 Autore: Enrico Martini
 """
 
+import os
 import sys
 
 from PySide6.QtCore import QSettings, QStringListModel, Qt
-from PySide6.QtGui import QAction, QActionGroup, QFont
+from PySide6.QtGui import QAction, QActionGroup, QFont, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QCompleter, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
+    QApplication, QCompleter, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+    QMainWindow, QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
 )
 
 from ..common.legacy_import import migrate_legacy_data
@@ -39,12 +40,23 @@ from .fundamental_view import MainWindow as FundamentalWindow
 from .technical_view import MainWindow as TechnicalWindow
 
 
+def _icon_path() -> str:
+    """Percorso di icon.ico accanto a questo modulo (come config._get_base_path():
+    la cartella di questo file, non la working directory, altrimenti dal wrapper
+    PyInstaller l'icona non si troverebbe)."""
+    base_path = sys._MEIPASS if hasattr(sys, "_MEIPASS") else os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, "icon.ico")
+
+
 class UnifiedMainWindow(QMainWindow):
     """Contenitore delle due analisi con barra ticker condivisa e menu unico."""
 
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} v{VERSION}")
+        icon_path = _icon_path()
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
         self.settings = QSettings(AUTHOR.replace(" ", ""), APP_NAME.replace(" ", ""))
 
         central = QWidget()
@@ -94,11 +106,20 @@ class UnifiedMainWindow(QMainWindow):
         # vista fondamentale, l'unica parte del suo box "1. Ricerca" senza
         # equivalente nella barra condivisa. _on_search_requested() li legge
         # gia' direttamente (self.rb_azione.isChecked()), quindi funzionano
-        # identici alla posizione originale.
-        bar.addSpacing(12)
-        bar.addWidget(self.fundamental.rb_azione)
-        bar.addWidget(self.fundamental.rb_etf)
-        bar.addSpacing(12)
+        # identici alla posizione originale. Racchiusi in un riquadro
+        # titolato (invece di due semplici radio button a filo con il resto
+        # della barra) perche' altrimenti passavano facilmente inosservati:
+        # un bordo e un'etichetta li rendono un controllo riconoscibile a
+        # colpo d'occhio invece di confondersi con lo sfondo della barra.
+        bar.addSpacing(8)
+        asset_group = QGroupBox("Tipo")
+        asset_layout = QHBoxLayout(asset_group)
+        asset_layout.setContentsMargins(10, 2, 10, 4)
+        asset_layout.setSpacing(10)
+        asset_layout.addWidget(self.fundamental.rb_azione)
+        asset_layout.addWidget(self.fundamental.rb_etf)
+        bar.addWidget(asset_group)
+        bar.addSpacing(8)
 
         self.btn_analyze_both = QPushButton("Analizza")
         self.btn_analyze_both.clicked.connect(self._on_analyze_both)
@@ -274,6 +295,9 @@ def main() -> None:
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    icon_path = _icon_path()
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
 
     settings = QSettings(AUTHOR.replace(" ", ""), APP_NAME.replace(" ", ""))
 
