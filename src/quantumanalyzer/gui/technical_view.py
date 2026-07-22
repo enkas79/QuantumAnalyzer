@@ -82,7 +82,10 @@ del numero di candele è mostrata sotto i menu.<br><br>
 Le caselle MACD e Bollinger Bands aggiungono due leg di conferma
 facoltativi (disattivati di default). Se li attivi, il punteggio si
 ricalcola automaticamente includendo il loro peso, quindi il punteggio a
-3 leg di default non cambia finché restano spenti.<br><br>
+3 leg di default non cambia finché restano spenti. Le stesse caselle
+aggiungono anche il relativo indicatore alla scheda Grafico (pannello
+MACD sotto il prezzo, bande di Bollinger sovrapposte al prezzo):
+l'effetto si vede subito, anche senza rilanciare l'analisi.<br><br>
 
 <b>4. Come leggere il risultato</b><br>
 - <b>Direzione</b> (bullish/bearish/neutral): stabilita <u>solo</u> dal
@@ -146,7 +149,10 @@ non una raccomandazione di investimento.<br><br>
 <b>7. Scheda Grafico</b><br>
 Mostra il prezzo con EMA50/EMA200 sovrapposte e, sotto, l'RSI(14) con le
 soglie di ipercomprato (70) e ipervenduto (30), per l'ultimo ticker
-analizzato nella scheda Analisi.<br><br>
+analizzato nella scheda Analisi. Se in "Indicatori opzionali" (scheda
+Analisi) sono attivi MACD e/o Bollinger Bands, compaiono anche qui: le
+bande sovrapposte al prezzo, il MACD in un pannello proprio sotto
+l'RSI.<br><br>
 
 <b>8. Scheda Watchlist</b><br>
 Aggiungi più ticker a una lista salvata tra le sessioni. "Analizza
@@ -380,6 +386,16 @@ class MainWindow(QMainWindow):
         form_row.addWidget(QLabel("Intervallo:"))
         form_row.addWidget(self.interval_combo)
         form_row.addWidget(self.analyze_button)
+        # Ancora di stretch esplicita, immune a hide_ticker_row(): senza di
+        # questa, quando la GUI unificata nasconde ticker_label/ticker_input/
+        # analyze_button (che qui sopra e' l'unico item con stretch>0), Qt
+        # smette di avere un consumatore di stretch e ridistribuisce lo
+        # spazio residuo in parti uguali su TUTTI i widget rimasti (etichette
+        # comprese, non solo le combo), spingendo "Periodo"/"Intervallo" e le
+        # rispettive combo lontani fra loro con vistosi vuoti a meta' riga.
+        # Con questa ancora, il residuo si accumula sempre qui invece che
+        # tra le etichette e i loro valori.
+        form_row.addStretch(1)
         search_layout.addLayout(form_row)
 
         self.results_list = QListWidget()
@@ -392,14 +408,23 @@ class MainWindow(QMainWindow):
         self.candles_label.setStyleSheet("color: #757575;")
         search_layout.addWidget(self.candles_label)
 
-        extra_legs_row = QHBoxLayout()
-        extra_legs_row.addWidget(QLabel("Leg opzionali:"))
+        # Riquadro titolato (non piu' una semplice etichetta "Leg opzionali:"
+        # a filo con due checkbox): quella forma si perdeva visivamente in
+        # mezzo al resto del box "Ricerca e parametri". Un bordo proprio
+        # rende visibile a colpo d'occhio che qui c'e' un controllo, e il
+        # titolo chiarisce che le due spunte non toccano solo il punteggio
+        # ma anche cosa compare nella scheda Grafico (vedi _update_chart()).
+        extra_legs_group = QGroupBox("Indicatori opzionali (punteggio + grafico)")
+        extra_legs_row = QHBoxLayout(extra_legs_group)
+        extra_legs_row.setContentsMargins(10, 4, 10, 6)
         self.macd_checkbox = QCheckBox("MACD")
         self.bollinger_checkbox = QCheckBox("Bollinger Bands")
+        self.macd_checkbox.toggled.connect(self._on_extra_legs_toggled)
+        self.bollinger_checkbox.toggled.connect(self._on_extra_legs_toggled)
         extra_legs_row.addWidget(self.macd_checkbox)
         extra_legs_row.addWidget(self.bollinger_checkbox)
         extra_legs_row.addStretch(1)
-        search_layout.addLayout(extra_legs_row)
+        search_layout.addWidget(extra_legs_group)
 
         layout.addWidget(search_group)
         self._on_period_changed()
@@ -500,18 +525,41 @@ class MainWindow(QMainWindow):
 
         self.chart_figure = Figure(figsize=(6, 5))
         self.chart_canvas = FigureCanvasQTAgg(self.chart_figure)
-        self.chart_ax_price = self.chart_figure.add_subplot(2, 1, 1)
-        self.chart_ax_rsi = self.chart_figure.add_subplot(2, 1, 2, sharex=self.chart_ax_price)
-        self.chart_figure.tight_layout()
+        self.chart_ax_price = None
+        self.chart_ax_rsi = None
+        self.chart_ax_macd = None  # solo quando il checkbox MACD e' attivo
         layout.addWidget(self.chart_canvas)
 
         self._clear_chart()
         return central
 
+    def _rebuild_chart_axes(self, with_macd: bool) -> None:
+        """(Ri)crea gli assi del grafico. Il pannello MACD, quando presente,
+        aggiunge una riga alla griglia: gli assi vengono quindi ricreati da
+        zero a ogni disegno invece di essere fissati una volta sola in
+        _build_chart_tab(), cosi' il numero di riquadri puo' cambiare in
+        base al checkbox MACD (vedi _update_chart())."""
+        self.chart_figure.clear()
+        if with_macd:
+            grid = self.chart_figure.add_gridspec(3, 1, height_ratios=[3, 1, 1])
+        else:
+            grid = self.chart_figure.add_gridspec(2, 1, height_ratios=[3, 1])
+        self.chart_ax_price = self.chart_figure.add_subplot(grid[0])
+        self.chart_ax_rsi = self.chart_figure.add_subplot(grid[1], sharex=self.chart_ax_price)
+        self.chart_ax_macd = (
+            self.chart_figure.add_subplot(grid[2], sharex=self.chart_ax_price) if with_macd else None
+        )
+
+    def _chart_axes(self) -> list:
+        axes = [self.chart_ax_price, self.chart_ax_rsi]
+        if self.chart_ax_macd is not None:
+            axes.append(self.chart_ax_macd)
+        return axes
+
     def _style_chart_axes(self):
         colors = CHART_THEME[self._theme]
         self.chart_figure.set_facecolor(colors["bg"])
-        for ax in (self.chart_ax_price, self.chart_ax_rsi):
+        for ax in self._chart_axes():
             ax.set_facecolor(colors["bg"])
             ax.tick_params(colors=colors["text"], labelcolor=colors["text"])
             ax.title.set_color(colors["text"])
@@ -528,33 +576,77 @@ class MainWindow(QMainWindow):
                     text.set_color(colors["text"])
 
     def _clear_chart(self):
-        self.chart_ax_price.clear()
-        self.chart_ax_rsi.clear()
+        self._rebuild_chart_axes(with_macd=False)
         self.chart_ax_price.set_title("Analizza un ticker per vedere il grafico")
         self._style_chart_axes()
         self.chart_canvas.draw()
 
+    def _on_extra_legs_toggled(self, _checked: bool = False) -> None:
+        """MACD/Bollinger ridisegnano subito l'ultimo grafico disponibile
+        (se esiste), cosi' l'effetto del toggle si vede senza dover
+        rilanciare l'analisi. Il punteggio invece resta legato al click su
+        "Analizza" come gia' prima: qui si tocca solo la visualizzazione."""
+        if self._last_chart is not None:
+            symbol, df = self._last_chart
+            self._update_chart(symbol, df)
+
+    def _macd_bar_width(self, df) -> float:
+        """Larghezza delle barre dell'istogramma MACD in giorni (unita' che
+        matplotlib usa per un asse x a date): calcolata dalla spaziatura
+        media reale delle candele, altrimenti con periodi intraday (5m, 1h,
+        ...) una larghezza fissa pensata per candele giornaliere le farebbe
+        comparire come un unico blocco pieno o, all'opposto, invisibili."""
+        if len(df.index) < 2:
+            return 0.8
+        span_days = (df.index[-1] - df.index[0]).total_seconds() / 86400.0
+        return (span_days / (len(df.index) - 1)) * 0.7
+
     def _update_chart(self, symbol: str, df):
         self._last_chart = (symbol, df)
+        show_macd = self.macd_checkbox.isChecked()
+        show_bollinger = self.bollinger_checkbox.isChecked()
+
         close = df["close"]
         ema50 = indicators.ema(close, 50)
         ema200 = indicators.ema(close, 200)
         rsi14 = indicators.rsi(close, 14)
 
-        self.chart_ax_price.clear()
+        self._rebuild_chart_axes(with_macd=show_macd)
+
         self.chart_ax_price.plot(df.index, close, label="Prezzo", color="#1f77b4", linewidth=1)
         self.chart_ax_price.plot(df.index, ema50, label="EMA50", color="#ff7f0e", linewidth=1)
         self.chart_ax_price.plot(df.index, ema200, label="EMA200", color="#2ca02c", linewidth=1)
+        if show_bollinger:
+            _mid, upper, lower = indicators.bollinger_bands(close)
+            self.chart_ax_price.plot(
+                df.index, upper, label="Bollinger sup.", color="#9e9e9e", linewidth=0.8, linestyle="--"
+            )
+            self.chart_ax_price.plot(
+                df.index, lower, label="Bollinger inf.", color="#9e9e9e", linewidth=0.8, linestyle="--"
+            )
+            self.chart_ax_price.fill_between(df.index, lower, upper, color="#9e9e9e", alpha=0.12)
         self.chart_ax_price.set_title(symbol)
         self.chart_ax_price.legend(loc="upper left", fontsize="small")
         self.chart_ax_price.tick_params(labelbottom=False)
 
-        self.chart_ax_rsi.clear()
         self.chart_ax_rsi.plot(df.index, rsi14, label="RSI(14)", color="#9467bd", linewidth=1)
         self.chart_ax_rsi.axhline(RSI_OVERBOUGHT, color="#c62828", linestyle="--", linewidth=0.8)
         self.chart_ax_rsi.axhline(RSI_OVERSOLD, color="#2e7d32", linestyle="--", linewidth=0.8)
         self.chart_ax_rsi.set_ylim(0, 100)
         self.chart_ax_rsi.legend(loc="upper left", fontsize="small")
+
+        if show_macd:
+            self.chart_ax_rsi.tick_params(labelbottom=False)
+            macd_line, signal_line, histogram = indicators.macd(close)
+            hist = histogram.fillna(0)
+            bar_colors = ["#2e7d32" if v >= 0 else "#c62828" for v in hist]
+            self.chart_ax_macd.bar(
+                df.index, hist, width=self._macd_bar_width(df), color=bar_colors, alpha=0.4, label="Istogramma"
+            )
+            self.chart_ax_macd.plot(df.index, macd_line, label="MACD", color="#1f77b4", linewidth=1)
+            self.chart_ax_macd.plot(df.index, signal_line, label="Signal", color="#ff7f0e", linewidth=1)
+            self.chart_ax_macd.axhline(0, color=CHART_THEME[self._theme]["grid"], linewidth=0.8)
+            self.chart_ax_macd.legend(loc="upper left", fontsize="small")
 
         self.chart_figure.autofmt_xdate()
         self._style_chart_axes()

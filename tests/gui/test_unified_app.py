@@ -158,8 +158,14 @@ def test_asset_toggle_is_moved_into_shared_bar_not_duplicated(window):
     # isHidden() (non isVisible()): riflette il flag di visibilita' esplicito
     # del singolo widget, indipendente dal fatto che qtbot non mostri mai la
     # finestra top-level nei test (isVisible() sarebbe sempre False li').
-    assert window.fundamental.rb_azione.parentWidget() is window.centralWidget()
-    assert window.fundamental.rb_etf.parentWidget() is window.centralWidget()
+    # I radio button sono dentro un QGroupBox "Tipo" per renderli piu'
+    # visibili (restyle spazi): il parent diretto non e' piu' il central
+    # widget, ma deve comunque farne parte (dentro la barra condivisa, non
+    # nel box "1. Ricerca" della vista fondamentale, che resta nascosto).
+    assert window.centralWidget().isAncestorOf(window.fundamental.rb_azione)
+    assert window.centralWidget().isAncestorOf(window.fundamental.rb_etf)
+    assert window.fundamental.rb_azione.parentWidget() is not window.fundamental.search_group
+    assert window.fundamental.rb_etf.parentWidget() is not window.fundamental.search_group
     assert window.fundamental.rb_azione.isHidden() is False
     assert window.fundamental.rb_etf.isHidden() is False
 
