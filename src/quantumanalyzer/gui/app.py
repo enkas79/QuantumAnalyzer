@@ -132,6 +132,7 @@ class UnifiedMainWindow(QMainWindow):
         # tecnica duplicano la barra condivisa: nascosti.
         self.technical.hide_ticker_row()
         self.fundamental.hide_search_box()
+        self.fundamental.hide_title_label()
 
         # --- Tab con le due viste embedded ----------------------------------
         self.tabs = QTabWidget()

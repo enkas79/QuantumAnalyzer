@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QStatusBar,
     QTabWidget,
     QTableWidget,
@@ -504,7 +506,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(risk_group)
         layout.addStretch(1)  # leftover space collects here, not stretched into a group
 
-        return central
+        # Scorrevole: con MACD/Bollinger attivi la legs_table sale a 5 righe
+        # e, sommata a search/result/risk group, il contenuto puo' superare
+        # l'altezza disponibile (es. finestra non massimizzata, o
+        # incorporata nella GUI unificata dove barra ticker + doppio tab
+        # riducono lo spazio verticale). Senza scroll, questa tab non ha
+        # altro modo di reagire che tagliare silenziosamente le righe in
+        # fondo alla tabella invece di renderle raggiungibili.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(central)
+        return scroll
 
     def _fit_legs_table_height(self):
         """Size legs_table to its (small, bounded 3-5) row count instead of
@@ -518,6 +531,23 @@ class MainWindow(QMainWindow):
         # setMaximumHeight alone isn't enough: the layout still allocates the
         # table its (smaller, generic) sizeHint unless the height is fixed.
         self.legs_table.setFixedHeight(header_height + row_count * (row_height + 1) + frame + 10)
+
+        # Il cambio di altezza si propaga verso l'alto come evento differito
+        # (QLayout invalida ma non ricalcola subito): con 4 o 5 leg (MACD/
+        # Bollinger attivi) il QGroupBox "Risultato" e il widget scrollabile
+        # che lo contiene possono restare, per uno o piu' frame, con la
+        # sizeHint precedente (quella per 3 righe) finche' non arriva un
+        # secondo giro di eventi — nel frattempo la tabella viene tagliata a
+        # meta', con le ultime righe (macd/bollinger) invisibili e senza che
+        # compaia una scrollbar. activate() forza il ricalcolo sincrono di
+        # entrambi i livelli, cosi' il gruppo e il contenuto scrollabile
+        # sono gia' della dimensione giusta al primo repaint.
+        result_group = self.legs_table.parentWidget()
+        if result_group is not None and result_group.layout() is not None:
+            result_group.layout().activate()
+            scroll_content = result_group.parentWidget()
+            if scroll_content is not None and scroll_content.layout() is not None:
+                scroll_content.layout().activate()
 
     def _build_chart_tab(self) -> QWidget:
         central = QWidget()

@@ -404,10 +404,10 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         self.setCentralWidget(central_widget)
 
-        title_label = QLabel(APP_NAME)
-        title_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(title_label)
+        self.title_label = QLabel(APP_NAME)
+        self.title_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self.title_label)
 
         self._create_search_section(main_layout)
         self.stacked_inputs = QStackedWidget()
@@ -737,6 +737,14 @@ class MainWindow(QMainWindow):
         finiscono nascosti insieme al resto del box."""
         self.search_group.hide()
 
+    def hide_title_label(self) -> None:
+        """Nasconde l'intestazione "QuantumAnalyzer": ha senso in
+        QuantumValue standalone, ma nella GUI unificata (gui/app.py) e'
+        ridondante (il nome del programma e' gia' nel titolo della
+        finestra e nella tab "Analisi Fondamentale (Value)") e sottrae
+        spazio verticale utile."""
+        self.title_label.hide()
+
     def _toggle_asset_mode(self) -> None:
         is_azione = self.rb_azione.isChecked()
         if is_azione:
@@ -823,7 +831,7 @@ class MainWindow(QMainWindow):
             grid_layout.addWidget(le, row, col + 1)
             self.inputs[key] = le
 
-        layout.addWidget(input_group)
+        layout.addWidget(theme.wrap_max_width(input_group))
 
     def _create_input_section_etf(self, parent: QWidget) -> None:
         layout = QVBoxLayout(parent)
@@ -860,7 +868,7 @@ class MainWindow(QMainWindow):
             grid_layout.addWidget(le, row, col + 1)
             self.etf_inputs[key] = le
 
-        layout.addWidget(input_group)
+        layout.addWidget(theme.wrap_max_width(input_group))
 
     def _make_scrollable(self, tab: QWidget) -> QVBoxLayout:
         """Installa una QScrollArea a riempimento di `tab` e restituisce il
@@ -908,7 +916,7 @@ class MainWindow(QMainWindow):
             self.res_eval_labels[key] = lbl_eval
             inner_layout.addLayout(row_layout)
 
-        layout.addWidget(metrics_group)
+        layout.addWidget(theme.wrap_max_width(metrics_group))
         eval_group = QGroupBox("Verdetto Qualità Aziendale")
         eval_layout = QVBoxLayout(eval_group)
         self.lbl_score = QLabel("- / 10")
@@ -919,7 +927,7 @@ class MainWindow(QMainWindow):
         eval_layout.addSpacing(10)
         eval_layout.addWidget(self.lbl_score)
         eval_layout.addWidget(self.lbl_recommendation)
-        layout.addWidget(eval_group)
+        layout.addWidget(theme.wrap_max_width(eval_group))
         layout.addStretch()
 
     def _setup_tab_opportunity(self, tab: QWidget) -> None:
@@ -947,7 +955,7 @@ class MainWindow(QMainWindow):
             self.opp_eval_labels[key] = lbl_eval
             inner_layout.addLayout(row_layout)
 
-        layout.addWidget(opp_group)
+        layout.addWidget(theme.wrap_max_width(opp_group))
         eval_opp_group = QGroupBox("Verdetto Occasione in Borsa")
         eval_opp_layout = QVBoxLayout(eval_opp_group)
         self.lbl_opp_score = QLabel("- / 10")
@@ -958,7 +966,7 @@ class MainWindow(QMainWindow):
         eval_opp_layout.addSpacing(10)
         eval_opp_layout.addWidget(self.lbl_opp_score)
         eval_opp_layout.addWidget(self.lbl_opp_recommendation)
-        layout.addWidget(eval_opp_group)
+        layout.addWidget(theme.wrap_max_width(eval_opp_group))
 
         flags_group = QGroupBox("Campanelli d'Allarme (Rischio Valutazione)")
         flags_layout = QVBoxLayout(flags_group)
@@ -986,7 +994,7 @@ class MainWindow(QMainWindow):
         self.lbl_flags_summary.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         flags_layout.addSpacing(10)
         flags_layout.addWidget(self.lbl_flags_summary)
-        layout.addWidget(flags_group)
+        layout.addWidget(theme.wrap_max_width(flags_group))
         layout.addStretch()
 
     def _setup_tab_etf(self, tab: QWidget) -> None:
@@ -1012,7 +1020,7 @@ class MainWindow(QMainWindow):
             self.etf_eval_labels[key] = lbl_eval
             inner_layout.addLayout(row_layout)
 
-        layout.addWidget(etf_group)
+        layout.addWidget(theme.wrap_max_width(etf_group))
         eval_etf_group = QGroupBox("Giudizio Strumento Passivo")
         eval_etf_layout = QVBoxLayout(eval_etf_group)
         self.lbl_etf_score = QLabel("- / 10")
@@ -1023,7 +1031,7 @@ class MainWindow(QMainWindow):
         eval_etf_layout.addSpacing(10)
         eval_etf_layout.addWidget(self.lbl_etf_score)
         eval_etf_layout.addWidget(self.lbl_etf_recommendation)
-        layout.addWidget(eval_etf_group)
+        layout.addWidget(theme.wrap_max_width(eval_etf_group))
         layout.addStretch()
 
     def _clear_worker_ref(self, attr_name: str, worker: QThread) -> None:

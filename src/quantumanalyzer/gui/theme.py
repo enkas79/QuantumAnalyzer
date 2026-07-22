@@ -23,7 +23,7 @@ Autore: Enrico Martini
 from string import Template
 from typing import Dict
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QWidget
 from PySide6.QtGui import QPalette, QColor
 
 # Colori semantici per ciascun tema. Le viste devono leggere i colori da qui
@@ -103,6 +103,23 @@ _STYLESHEET = Template("""
 
     QLabel, QRadioButton, QCheckBox { background: transparent; }
     QCheckBox, QRadioButton { spacing: 6px; }
+    QCheckBox::indicator, QRadioButton::indicator {
+        width: 15px;
+        height: 15px;
+        border: 1.5px solid $muted;
+        background-color: $input_bg;
+    }
+    QCheckBox::indicator { border-radius: 3px; }
+    QRadioButton::indicator { border-radius: 8px; }
+    QCheckBox::indicator:hover, QRadioButton::indicator:hover { border-color: $accent; }
+    QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+        background-color: $highlight;
+        border-color: $highlight;
+    }
+    QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+        border-color: $border;
+        background-color: $window;
+    }
 
     QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox {
         border: 1px solid $border;
@@ -205,6 +222,29 @@ def current_theme() -> str:
 def color(key: str) -> str:
     """Restituisce il colore semantico richiesto per il tema attivo."""
     return THEMES[_current][key]
+
+
+def wrap_max_width(widget: QWidget, max_width: int = 900) -> QWidget:
+    """Incornicia `widget` centrato con una larghezza massima.
+
+    Un QGroupBox aggiunto direttamente a un QVBoxLayout viene allungato
+    per riempire tutta la larghezza disponibile (comportamento normale di
+    QVBoxLayout con un widget a policy Preferred): per un form pensato
+    per una manciata di campi etichetta+valore, su una finestra
+    massimizzata su schermo largo questo lascia un vuoto enorme invece di
+    un margine equilibrato sui due lati. Il wrapper qui usa una
+    QHBoxLayout con due spazi elastici: senza un proprio stretch factor,
+    `widget` riceve solo la sua sizeHint (non l'intera larghezza), quindi
+    resta compatto e centrato invece di allungarsi.
+    """
+    widget.setMaximumWidth(max_width)
+    wrapper = QWidget()
+    row = QHBoxLayout(wrapper)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addStretch(1)
+    row.addWidget(widget)
+    row.addStretch(1)
+    return wrapper
 
 
 def apply_theme(app: QApplication, name: str = "light") -> None:
