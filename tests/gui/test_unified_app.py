@@ -236,21 +236,28 @@ def test_update_check_action_calls_fundamental_check(window, monkeypatch):
     assert calls == [False]  # non silenzioso: l'utente l'ha chiesto esplicitamente
 
 
-def test_guide_menu_opens_both_guides(window, monkeypatch):
-    from PySide6.QtWidgets import QDialog
+def test_guide_menu_opens_unified_guide(window, monkeypatch):
     opened = []
-    monkeypatch.setattr(window.technical, "_show_guide", lambda: opened.append("tech"))
 
     from quantumanalyzer.gui import app as app_mod
-    monkeypatch.setattr(app_mod, "GuideDialog",
-                        lambda parent: opened.append("fund") or type("_D", (), {"exec": lambda self: None})())
+    monkeypatch.setattr(
+        app_mod, "UnifiedGuideDialog",
+        lambda parent: opened.append("guide") or type("_D", (), {"exec": lambda self: None})(),
+    )
 
-    tech_action = _find_action(window, "Guida", "Analisi Tecnica")
-    fund_action = _find_action(window, "Guida", "Fondamentale")
-    assert tech_action is not None and fund_action is not None
-    tech_action.trigger()
-    fund_action.trigger()
-    assert sorted(opened) == ["fund", "tech"]
+    guide_action = _find_action(window, "Guida", "Guida")
+    assert guide_action is not None
+    guide_action.trigger()
+    assert opened == ["guide"]
+
+
+def test_guide_html_contains_both_sections():
+    from quantumanalyzer.gui.guide import GUIDE_HTML
+
+    assert 'name="tecnica"' in GUIDE_HTML
+    assert 'name="fondamentale"' in GUIDE_HTML
+    assert "Earnings Yield" in GUIDE_HTML
+    assert "EMA 50/200" in GUIDE_HTML
 
 
 def test_theme_menu_actions_apply_to_both_views(window, monkeypatch):

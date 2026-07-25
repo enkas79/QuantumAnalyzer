@@ -8,10 +8,11 @@ a entrambe le viste, che avviano i rispettivi fetch in parallelo sui propri
 worker QThread: nessuna delle due analisi blocca l'altra.
 
 Le due viste embedded conservano la propria logica ma non piu' la propria
-GUI di cornice: i menu bar interni sono nascosti (le voci utili — guide,
-tema, API key, export CSV, aggiornamenti — sono consolidate nell'unico menu
-di questa finestra, altrimenti erano davvero presenti ma sepolte in una
-seconda barra menu per tab, poco distinguibile dalla prima) e le rispettive
+GUI di cornice: i menu bar interni sono nascosti (le voci utili — guida
+(unificata, vedi gui/guide.py), tema, API key, export CSV, aggiornamenti —
+sono consolidate nell'unico menu di questa finestra, altrimenti erano
+davvero presenti ma sepolte in una seconda barra menu per tab, poco
+distinguibile dalla prima) e le rispettive
 caselle di ricerca ticker sono nascoste (sostituite dalla barra condivisa
 sopra), mantenendo pero' i controlli che non hanno equivalente condiviso
 (periodo/intervallo/leg opzionali per la tecnica, switch Azioni/ETF per la
@@ -35,8 +36,9 @@ from ..common.legacy_import import migrate_legacy_data
 from ..fundamental import utils
 from ..fundamental.config import APP_NAME, AUTHOR, VERSION
 from . import theme
-from .fundamental_view import GuideDialog, MAX_RECENT_TICKERS
+from .fundamental_view import MAX_RECENT_TICKERS
 from .fundamental_view import MainWindow as FundamentalWindow
+from .guide import UnifiedGuideDialog
 from .technical_view import MainWindow as TechnicalWindow
 
 
@@ -216,12 +218,9 @@ class UnifiedMainWindow(QMainWindow):
             m_view.addAction(action)
 
         m_guide = menubar.addMenu("&Guida")
-        guide_tech_action = QAction("Guida &Analisi Tecnica...", self)
-        guide_tech_action.triggered.connect(self.technical._show_guide)
-        m_guide.addAction(guide_tech_action)
-        guide_fund_action = QAction("Guida Analisi &Fondamentale...", self)
-        guide_fund_action.triggered.connect(lambda: GuideDialog(self.fundamental).exec())
-        m_guide.addAction(guide_fund_action)
+        guide_action = QAction("&Guida...", self)
+        guide_action.triggered.connect(lambda: UnifiedGuideDialog(self).exec())
+        m_guide.addAction(guide_action)
 
         m_help = menubar.addMenu("&Aiuto")
         update_action = QAction("&Verifica Aggiornamenti", self)
