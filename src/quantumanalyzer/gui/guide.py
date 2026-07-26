@@ -110,7 +110,7 @@ ritracciamento/rimbalzo), altrimenti conferma.</li>
 <td style="color:#c62828; font-weight:bold;">&#9632; Rosso = veto</td>
 </tr></table>
 
-<h3 style="color:#2c3e50; margin-bottom:2px;">6. Rischio e position sizing</h3>
+<h3 style="color:#2c3e50; margin-bottom:2px;">6. Rischio</h3>
 <ul>
 <li><b>Prezzo</b>: ultima chiusura disponibile per il ticker.</li>
 <li><b>ATR</b> (Average True Range, 14 periodi): volatilita' media
@@ -120,16 +120,8 @@ a dimensionare il rischio.</li>
 stop-loss, pari ad ATR &times; 1.5 di default. E' una distanza basata sulla
 volatilita' storica, non un livello garantito ne' legato a
 supporti/resistenze specifici del titolo.</li>
-<li><b>Capitale</b> e <b>Rischio per trade (%)</b>: quanto sei disposto
-a perdere in valuta se lo stop viene toccato (es. capitale 10.000 e
-rischio 1% = 100 di perdita massima accettata).</li>
-<li><b>Size suggerita</b>: azioni = (capitale &times; rischio%) &divide; stop
-suggerito, arrotondato per difetto. Esempio: capitale 10.000, rischio
-1% (cioe' 100), stop 3.00 &rarr; 33 azioni. A parita' di rischio in valuta,
-uno stop piu' stretto (titolo meno volatile) alza la size, uno piu'
-largo (titolo piu' volatile) la abbassa.</li>
-<li>Questi numeri sono un calcolo meccanico sui parametri che inserisci,
-non una raccomandazione di investimento.</li>
+<li>Questi numeri sono un calcolo meccanico sui dati storici, non una
+raccomandazione di investimento.</li>
 </ul>
 
 <h3 style="color:#2c3e50; margin-bottom:2px;">7. Scheda Grafico</h3>

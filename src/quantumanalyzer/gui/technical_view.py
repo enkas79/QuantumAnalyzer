@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QDoubleSpinBox,
     QLineEdit,
     QListWidget,
     QMainWindow,
@@ -37,7 +36,6 @@ from ..fundamental.config import APP_NAME, AUTHOR
 from ..technical import indicators
 from ..technical.data import INTERVAL_LABELS, PERIOD_CHOICES, default_interval, estimated_bars, valid_intervals
 from ..technical.engine import AnalysisResult, RSI_OVERBOUGHT, RSI_OVERSOLD
-from ..technical.risk import position_size
 from . import theme as shared_theme
 from .technical_workers import AnalysisWorker, SearchWorker, UpdateCheckWorker, WatchlistWorker
 
@@ -128,7 +126,7 @@ ritracciamento/rimbalzo), altrimenti conferma.<br><br>
 
 Verde = conferma, grigio = neutro, rosso = veto.<br><br>
 
-<b>6. Rischio e position sizing</b><br>
+<b>6. Rischio</b><br>
 - <b>Prezzo</b>: ultima chiusura disponibile per il ticker.<br>
 - <b>ATR</b> (Average True Range, 14 periodi): volatilità media
 recente in valuta. Non entra nel punteggio di confidenza — serve solo
@@ -137,16 +135,8 @@ a dimensionare il rischio.<br>
 stop-loss, pari ad ATR × 1.5 di default. È una distanza basata sulla
 volatilità storica, non un livello garantito né legato a
 supporti/resistenze specifici del titolo.<br>
-- <b>Capitale</b> e <b>Rischio per trade (%)</b>: quanto sei disposto
-a perdere in valuta se lo stop viene toccato (es. capitale 10.000 e
-rischio 1% = 100 di perdita massima accettata).<br>
-- <b>Size suggerita</b>: azioni = (capitale × rischio%) ÷ stop
-suggerito, arrotondato per difetto. Esempio: capitale 10.000, rischio
-1% (cioè 100), stop 3.00 → 33 azioni. A parità di rischio in valuta,
-uno stop più stretto (titolo meno volatile) alza la size, uno più
-largo (titolo più volatile) la abbassa.<br>
-- Questi numeri sono un calcolo meccanico sui parametri che inserisci,
-non una raccomandazione di investimento.<br><br>
+- Questi numeri sono un calcolo meccanico sui dati storici, non una
+raccomandazione di investimento.<br><br>
 
 <b>7. Scheda Grafico</b><br>
 Mostra il prezzo con EMA50/EMA200 sovrapposte e, sotto, l'RSI(14) con le
@@ -204,7 +194,6 @@ class MainWindow(QMainWindow):
         self._search_timer.setSingleShot(True)
         self._search_timer.timeout.connect(self._run_search)
         self._resolved: tuple[str, str] | None = None  # (symbol, name) picked from search list
-        self._last_result: AnalysisResult | None = None
         self._watchlist_worker: WatchlistWorker | None = None
         self._watchlist_done = 0
         self._watchlist_total = 0
@@ -465,10 +454,16 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(result_group)
 
-        risk_group = QGroupBox("Rischio e position sizing")
-        risk_layout = QVBoxLayout(risk_group)
-
-        risk_row = QHBoxLayout()
+        # Gruppo compatto (no position sizing): a differenza di
+        # search_group/result_group, che sfruttano la larghezza piena per
+        # form/tabella, qui restano solo tre etichette corte. Un QGroupBox
+        # aggiunto "nudo" a un QVBoxLayout si allungherebbe comunque a
+        # tutta larghezza (comportamento normale del layout), lasciando un
+        # vuoto enorme dopo "Stop suggerito": l'alignment esplicito lo
+        # forza invece alla sua sizeHint, ancorato a sinistra come i box
+        # sopra.
+        risk_group = QGroupBox("Rischio")
+        risk_row = QHBoxLayout(risk_group)
         self.price_label = QLabel("Prezzo: -")
         self.atr_label = QLabel("ATR: -")
         self.stop_label = QLabel("Stop suggerito: -")
@@ -477,33 +472,8 @@ class MainWindow(QMainWindow):
         risk_row.addWidget(self.price_label)
         risk_row.addWidget(self.atr_label)
         risk_row.addWidget(self.stop_label)
-        risk_layout.addLayout(risk_row)
 
-        sizing_row = QHBoxLayout()
-        self.account_size_input = QDoubleSpinBox()
-        self.account_size_input.setRange(0, 1_000_000_000)
-        self.account_size_input.setDecimals(2)
-        self.account_size_input.setValue(10_000)
-        self.account_size_input.valueChanged.connect(self._update_position_size)
-
-        self.risk_pct_input = QDoubleSpinBox()
-        self.risk_pct_input.setRange(0.01, 100)
-        self.risk_pct_input.setDecimals(2)
-        self.risk_pct_input.setValue(1.0)
-        self.risk_pct_input.setSuffix(" %")
-        self.risk_pct_input.valueChanged.connect(self._update_position_size)
-
-        self.position_size_label = QLabel("Size suggerita: -")
-        self.position_size_label.setStyleSheet("font-weight: normal;")
-
-        sizing_row.addWidget(QLabel("Capitale:"))
-        sizing_row.addWidget(self.account_size_input)
-        sizing_row.addWidget(QLabel("Rischio per trade:"))
-        sizing_row.addWidget(self.risk_pct_input)
-        sizing_row.addWidget(self.position_size_label, stretch=1)
-        risk_layout.addLayout(sizing_row)
-
-        layout.addWidget(risk_group)
+        layout.addWidget(risk_group, 0, Qt.AlignLeft)
         layout.addStretch(1)  # leftover space collects here, not stretched into a group
 
         # Scorrevole: con MACD/Bollinger attivi la legs_table sale a 5 righe
@@ -904,23 +874,7 @@ class MainWindow(QMainWindow):
         self.atr_label.setText(f"ATR: {result.atr:.2f}")
         self.stop_label.setText(f"Stop suggerito: {result.suggested_stop_distance:.2f}")
 
-        self._last_result = result
-        self._update_position_size()
         self._update_chart(symbol, df)
-
-    def _update_position_size(self, *_args):
-        if self._last_result is None:
-            return
-        sizing = position_size(
-            account_size=self.account_size_input.value(),
-            risk_pct=self.risk_pct_input.value(),
-            stop_distance=self._last_result.suggested_stop_distance,
-            price=self._last_result.price,
-        )
-        self.position_size_label.setText(
-            f"Size suggerita: {sizing.shares} azioni (~{sizing.position_value:.2f}, "
-            f"rischio {sizing.risk_amount:.2f})"
-        )
 
     def _on_error(self, message: str):
         self.analyze_button.setEnabled(True)
