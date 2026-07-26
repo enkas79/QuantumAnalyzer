@@ -414,10 +414,13 @@ class MainWindow(QMainWindow):
         self.bollinger_checkbox.toggled.connect(self._on_extra_legs_toggled)
         extra_legs_row.addWidget(self.macd_checkbox)
         extra_legs_row.addWidget(self.bollinger_checkbox)
-        extra_legs_row.addStretch(1)
-        search_layout.addWidget(extra_legs_group)
+        # Allineato a sinistra e ridotto alla sua sizeHint: aggiunto "nudo"
+        # si allungherebbe a tutta la larghezza del box "Ricerca e
+        # parametri" per due sole checkbox, lasciando un vuoto vistoso alla
+        # loro destra.
+        search_layout.addWidget(extra_legs_group, alignment=Qt.AlignLeft)
 
-        layout.addWidget(search_group)
+        layout.addWidget(shared_theme.wrap_max_width_fill(search_group))
         self._on_period_changed()
 
         result_group = QGroupBox("Risultato")
@@ -452,16 +455,13 @@ class MainWindow(QMainWindow):
         result_layout.addWidget(self.legs_table)
         self._fit_legs_table_height()
 
-        layout.addWidget(result_group)
+        layout.addWidget(shared_theme.wrap_max_width_fill(result_group))
 
-        # Gruppo compatto (no position sizing): a differenza di
-        # search_group/result_group, che sfruttano la larghezza piena per
-        # form/tabella, qui restano solo tre etichette corte. Un QGroupBox
-        # aggiunto "nudo" a un QVBoxLayout si allungherebbe comunque a
-        # tutta larghezza (comportamento normale del layout), lasciando un
-        # vuoto enorme dopo "Stop suggerito": l'alignment esplicito lo
-        # forza invece alla sua sizeHint, ancorato a sinistra come i box
-        # sopra.
+        # Etichette corte (Prezzo/ATR/Stop): un QGroupBox a se' stante
+        # sarebbe stato quasi tutto vuoto. wrap_max_width lo tiene alla sua
+        # sizeHint e lo centra come gli altri box, invece di allungarlo a
+        # tutta larghezza (comportamento normale di un QGroupBox in un
+        # QVBoxLayout) lasciando un vuoto enorme dopo "Stop suggerito".
         risk_group = QGroupBox("Rischio")
         risk_row = QHBoxLayout(risk_group)
         self.price_label = QLabel("Prezzo: -")
@@ -473,7 +473,7 @@ class MainWindow(QMainWindow):
         risk_row.addWidget(self.atr_label)
         risk_row.addWidget(self.stop_label)
 
-        layout.addWidget(risk_group, 0, Qt.AlignLeft)
+        layout.addWidget(shared_theme.wrap_max_width(risk_group))
         layout.addStretch(1)  # leftover space collects here, not stretched into a group
 
         # Scorrevole: con MACD/Bollinger attivi la legs_table sale a 5 righe
@@ -512,12 +512,17 @@ class MainWindow(QMainWindow):
         # compaia una scrollbar. activate() forza il ricalcolo sincrono di
         # entrambi i livelli, cosi' il gruppo e il contenuto scrollabile
         # sono gia' della dimensione giusta al primo repaint.
-        result_group = self.legs_table.parentWidget()
-        if result_group is not None and result_group.layout() is not None:
-            result_group.layout().activate()
-            scroll_content = result_group.parentWidget()
-            if scroll_content is not None and scroll_content.layout() is not None:
-                scroll_content.layout().activate()
+        # result_group ora e' incapsulato in un wrapper di wrap_max_width()
+        # (per il centraggio, vedi _build_analysis_tab): un livello in piu'
+        # tra la tabella e lo scrollabile rispetto a prima, quindi si sale
+        # finche' c'e' un layout da riattivare invece di fermarsi al primo
+        # genitore.
+        widget = self.legs_table.parentWidget()
+        for _ in range(3):
+            if widget is None or widget.layout() is None:
+                break
+            widget.layout().activate()
+            widget = widget.parentWidget()
 
     def _build_chart_tab(self) -> QWidget:
         central = QWidget()

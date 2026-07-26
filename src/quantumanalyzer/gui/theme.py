@@ -247,6 +247,29 @@ def wrap_max_width(widget: QWidget, max_width: int = 900) -> QWidget:
     return wrapper
 
 
+def wrap_max_width_fill(widget: QWidget, max_width: int = 900) -> QWidget:
+    """Come `wrap_max_width`, ma per contenuti che devono riempire lo
+    spazio fino al limite invece di restare alla propria sizeHint (es. un
+    form con un campo a stretch, o una tabella con una colonna Stretch).
+
+    Con `wrap_max_width` questi widget si vedrebbero assegnata solo la
+    sizeHint minima (nessun stretch factor proprio nella riga), il che per
+    una QTableWidget significa una larghezza minuscola e colonne troncate
+    invece che una crescita fino al limite. Dando al widget uno stretch
+    factor molto piu' alto di quello dei due spazi elastici ai lati, il
+    layout lo fa crescere per primo fino al suo `maximumWidth`; solo lo
+    spazio eccedente quel limite finisce, in parti uguali, nei margini.
+    """
+    widget.setMaximumWidth(max_width)
+    wrapper = QWidget()
+    row = QHBoxLayout(wrapper)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addStretch(1)
+    row.addWidget(widget, 20)
+    row.addStretch(1)
+    return wrapper
+
+
 def apply_theme(app: QApplication, name: str = "light") -> None:
     """
     Applica palette e stylesheet del tema richiesto all'intera applicazione.
