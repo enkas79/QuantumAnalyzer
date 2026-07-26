@@ -420,7 +420,7 @@ class MainWindow(QMainWindow):
         # loro destra.
         search_layout.addWidget(extra_legs_group, alignment=Qt.AlignLeft)
 
-        layout.addWidget(shared_theme.wrap_max_width_fill(search_group))
+        layout.addWidget(shared_theme.wrap_max_width_fill(search_group, max_width=1100))
         self._on_period_changed()
 
         result_group = QGroupBox("Risultato")
@@ -455,25 +455,35 @@ class MainWindow(QMainWindow):
         result_layout.addWidget(self.legs_table)
         self._fit_legs_table_height()
 
-        layout.addWidget(shared_theme.wrap_max_width_fill(result_group))
-
-        # Etichette corte (Prezzo/ATR/Stop): un QGroupBox a se' stante
-        # sarebbe stato quasi tutto vuoto. wrap_max_width lo tiene alla sua
-        # sizeHint e lo centra come gli altri box, invece di allungarlo a
-        # tutta larghezza (comportamento normale di un QGroupBox in un
-        # QVBoxLayout) lasciando un vuoto enorme dopo "Stop suggerito".
+        # Etichette corte (Prezzo/ATR/Stop): un QGroupBox a se' stante,
+        # impilato sotto "Risultato", sarebbe stato quasi tutto vuoto (vedi
+        # storia di questo file). Affiancato invece a destra della tabella
+        # leg, usa lo spazio orizzontale che il box "Risultato" lascia
+        # comunque libero sulla destra della tabella.
         risk_group = QGroupBox("Rischio")
-        risk_row = QHBoxLayout(risk_group)
+        risk_col = QVBoxLayout(risk_group)
         self.price_label = QLabel("Prezzo: -")
         self.atr_label = QLabel("ATR: -")
         self.stop_label = QLabel("Stop suggerito: -")
         for label in (self.price_label, self.atr_label, self.stop_label):
             label.setStyleSheet("font-weight: normal;")
-        risk_row.addWidget(self.price_label)
-        risk_row.addWidget(self.atr_label)
-        risk_row.addWidget(self.stop_label)
+        risk_col.addWidget(self.price_label)
+        risk_col.addWidget(self.atr_label)
+        risk_col.addWidget(self.stop_label)
 
-        layout.addWidget(shared_theme.wrap_max_width(risk_group))
+        result_row = QWidget()
+        result_row_layout = QHBoxLayout(result_row)
+        result_row_layout.setContentsMargins(0, 0, 0, 0)
+        # result_group tiene lo stretch: e' lui a dover assorbire lo spazio
+        # in piu' su finestre larghe (la colonna Dettaglio ne trae
+        # vantaggio). risk_group, senza stretch, resta alla sua sizeHint
+        # invece di allungarsi a vuoto quanto result_group; AlignTop lo
+        # tiene compatto invece di stirarlo in altezza fino a pareggiare la
+        # tabella leg.
+        result_row_layout.addWidget(result_group, 1)
+        result_row_layout.addWidget(risk_group, 0, Qt.AlignTop)
+
+        layout.addWidget(shared_theme.wrap_max_width_fill(result_row, max_width=1100))
         layout.addStretch(1)  # leftover space collects here, not stretched into a group
 
         # Scorrevole: con MACD/Bollinger attivi la legs_table sale a 5 righe
@@ -512,13 +522,14 @@ class MainWindow(QMainWindow):
         # compaia una scrollbar. activate() forza il ricalcolo sincrono di
         # entrambi i livelli, cosi' il gruppo e il contenuto scrollabile
         # sono gia' della dimensione giusta al primo repaint.
-        # result_group ora e' incapsulato in un wrapper di wrap_max_width()
-        # (per il centraggio, vedi _build_analysis_tab): un livello in piu'
-        # tra la tabella e lo scrollabile rispetto a prima, quindi si sale
-        # finche' c'e' un layout da riattivare invece di fermarsi al primo
-        # genitore.
+        # result_group e' oggi affiancato a risk_group dentro result_row, a
+        # sua volta incapsulato in un wrapper di wrap_max_width_fill() (per
+        # il centraggio, vedi _build_analysis_tab): due livelli in piu' tra
+        # la tabella e lo scrollabile rispetto a un semplice
+        # legs_table -> result_group -> central, quindi si sale finche' c'e'
+        # un layout da riattivare invece di fermarsi ai primi genitori.
         widget = self.legs_table.parentWidget()
-        for _ in range(3):
+        for _ in range(4):
             if widget is None or widget.layout() is None:
                 break
             widget.layout().activate()
@@ -658,30 +669,41 @@ class MainWindow(QMainWindow):
         self.chart_canvas.draw()
 
     def _build_watchlist_tab(self) -> QWidget:
+        # Due colonne (gestione a sinistra, risultati a destra) invece di
+        # impilarle: la vecchia disposizione verticale metteva in fila un
+        # box di gestione stretto e basso, una riga di suggerimento e la
+        # tabella, allungando la tab in altezza per un contenuto che in
+        # larghezza avrebbe usato meglio lo spazio disponibile.
         central = QWidget()
-        layout = QVBoxLayout(central)
+        layout = QHBoxLayout(central)
         layout.setSpacing(14)
 
         manage_group = QGroupBox("Gestisci watchlist")
+        manage_group.setMaximumWidth(320)
         manage_layout = QVBoxLayout(manage_group)
 
-        add_row = QHBoxLayout()
+        ticker_row = QHBoxLayout()
         self.watchlist_input = QLineEdit()
         self.watchlist_input.setPlaceholderText("Ticker da aggiungere, es. AAPL")
         self.watchlist_input.returnPressed.connect(self._on_watchlist_add)
+        ticker_row.addWidget(QLabel("Ticker:"))
+        ticker_row.addWidget(self.watchlist_input, 1)
+        manage_layout.addLayout(ticker_row)
+
+        # Aggiungi/Rimuovi affiancati sotto il campo, non sulla stessa riga
+        # dell'etichetta "Ticker:": in una colonna larga ~320px non ci
+        # sarebbe stato spazio per tutti e quattro senza troncare l'input.
+        buttons_row = QHBoxLayout()
         self.watchlist_add_button = QPushButton("Aggiungi")
         self.watchlist_add_button.clicked.connect(self._on_watchlist_add)
         self.watchlist_remove_button = QPushButton("Rimuovi selezionato")
         self.watchlist_remove_button.clicked.connect(self._on_watchlist_remove)
-        add_row.addWidget(QLabel("Ticker:"))
-        add_row.addWidget(self.watchlist_input, stretch=1)
-        add_row.addWidget(self.watchlist_add_button)
-        add_row.addWidget(self.watchlist_remove_button)
-        manage_layout.addLayout(add_row)
+        buttons_row.addWidget(self.watchlist_add_button)
+        buttons_row.addWidget(self.watchlist_remove_button)
+        manage_layout.addLayout(buttons_row)
 
         self.watchlist_tickers_list = QListWidget()
-        self.watchlist_tickers_list.setMaximumHeight(100)
-        manage_layout.addWidget(self.watchlist_tickers_list)
+        manage_layout.addWidget(self.watchlist_tickers_list, 1)
 
         self.watchlist_run_button = QPushButton("Analizza tutti")
         manage_layout.addWidget(self.watchlist_run_button)
@@ -689,17 +711,20 @@ class MainWindow(QMainWindow):
 
         self.watchlist_progress_label = QLabel("")
         self.watchlist_progress_label.setStyleSheet("color: #757575; font-weight: normal;")
+        self.watchlist_progress_label.setWordWrap(True)
         manage_layout.addWidget(self.watchlist_progress_label)
 
         layout.addWidget(manage_group)
 
+        results_col = QVBoxLayout()
         table_hint_row = QHBoxLayout()
-        table_hint_row.addWidget(QLabel("Doppio click su una riga per caricarla in Analisi/Grafico."))
-        table_hint_row.addStretch(1)
+        hint_label = QLabel("Doppio click su una riga per caricarla in Analisi/Grafico.")
+        hint_label.setWordWrap(True)
+        table_hint_row.addWidget(hint_label, 1)
         self.watchlist_load_button = QPushButton("Carica selezionato")
         self.watchlist_load_button.clicked.connect(self._on_watchlist_load_selected)
         table_hint_row.addWidget(self.watchlist_load_button)
-        layout.addLayout(table_hint_row)
+        results_col.addLayout(table_hint_row)
 
         self.watchlist_table = QTableWidget(0, 5)
         self.watchlist_table.setHorizontalHeaderLabels(
@@ -712,7 +737,9 @@ class MainWindow(QMainWindow):
         self.watchlist_table.setSortingEnabled(True)
         self.watchlist_table.setAlternatingRowColors(True)
         self.watchlist_table.cellDoubleClicked.connect(self._on_watchlist_row_double_clicked)
-        layout.addWidget(self.watchlist_table)
+        results_col.addWidget(self.watchlist_table)
+
+        layout.addLayout(results_col, 1)
 
         return central
 

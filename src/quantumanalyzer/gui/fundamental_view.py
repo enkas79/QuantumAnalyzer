@@ -916,7 +916,6 @@ class MainWindow(QMainWindow):
             self.res_eval_labels[key] = lbl_eval
             inner_layout.addLayout(row_layout)
 
-        layout.addWidget(theme.wrap_max_width(metrics_group))
         eval_group = QGroupBox("Verdetto Qualità Aziendale")
         eval_layout = QVBoxLayout(eval_group)
         self.lbl_score = QLabel("- / 10")
@@ -927,7 +926,20 @@ class MainWindow(QMainWindow):
         eval_layout.addSpacing(10)
         eval_layout.addWidget(self.lbl_score)
         eval_layout.addWidget(self.lbl_recommendation)
-        layout.addWidget(theme.wrap_max_width(eval_group))
+
+        # Affiancati invece di impilati: due box bassi (poche righe di
+        # metriche + un verdetto sintetico) non riempiono l'altezza della
+        # tab da soli, e stare fianco a fianco evita lo scroll verticale
+        # nella GUI unificata, dove lo spazio e' piu' compresso che in
+        # standalone. eval_group resta alla sua sizeHint (niente stretch,
+        # AlignTop) invece di stirarsi fino all'altezza di metrics_group.
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(metrics_group, 1)
+        row_layout.addWidget(eval_group, 0, Qt.AlignmentFlag.AlignTop)
+
+        layout.addWidget(theme.wrap_max_width_fill(row, max_width=1000))
         layout.addStretch()
 
     def _setup_tab_opportunity(self, tab: QWidget) -> None:
@@ -955,7 +967,6 @@ class MainWindow(QMainWindow):
             self.opp_eval_labels[key] = lbl_eval
             inner_layout.addLayout(row_layout)
 
-        layout.addWidget(theme.wrap_max_width(opp_group))
         eval_opp_group = QGroupBox("Verdetto Occasione in Borsa")
         eval_opp_layout = QVBoxLayout(eval_opp_group)
         self.lbl_opp_score = QLabel("- / 10")
@@ -966,7 +977,6 @@ class MainWindow(QMainWindow):
         eval_opp_layout.addSpacing(10)
         eval_opp_layout.addWidget(self.lbl_opp_score)
         eval_opp_layout.addWidget(self.lbl_opp_recommendation)
-        layout.addWidget(theme.wrap_max_width(eval_opp_group))
 
         flags_group = QGroupBox("Campanelli d'Allarme (Rischio Valutazione)")
         flags_layout = QVBoxLayout(flags_group)
@@ -994,7 +1004,25 @@ class MainWindow(QMainWindow):
         self.lbl_flags_summary.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         flags_layout.addSpacing(10)
         flags_layout.addWidget(self.lbl_flags_summary)
-        layout.addWidget(theme.wrap_max_width(flags_group))
+
+        # Due colonne (metriche+verdetto a sinistra, campanelli d'allarme a
+        # destra) invece di tre box impilati: stesso motivo del tab Value,
+        # evitare lo scroll verticale quando questo contenuto non ha
+        # davvero bisogno di tutta l'altezza della tab.
+        left_col = QVBoxLayout()
+        left_col.setContentsMargins(0, 0, 0, 0)
+        left_col.addWidget(opp_group)
+        left_col.addWidget(eval_opp_group)
+        left_widget = QWidget()
+        left_widget.setLayout(left_col)
+
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(left_widget, 1)
+        row_layout.addWidget(flags_group, 1)
+
+        layout.addWidget(theme.wrap_max_width_fill(row, max_width=1100))
         layout.addStretch()
 
     def _setup_tab_etf(self, tab: QWidget) -> None:
@@ -1020,7 +1048,6 @@ class MainWindow(QMainWindow):
             self.etf_eval_labels[key] = lbl_eval
             inner_layout.addLayout(row_layout)
 
-        layout.addWidget(theme.wrap_max_width(etf_group))
         eval_etf_group = QGroupBox("Giudizio Strumento Passivo")
         eval_etf_layout = QVBoxLayout(eval_etf_group)
         self.lbl_etf_score = QLabel("- / 10")
@@ -1031,7 +1058,17 @@ class MainWindow(QMainWindow):
         eval_etf_layout.addSpacing(10)
         eval_etf_layout.addWidget(self.lbl_etf_score)
         eval_etf_layout.addWidget(self.lbl_etf_recommendation)
-        layout.addWidget(theme.wrap_max_width(eval_etf_group))
+
+        # Stesso schema affiancato del tab Value: due box bassi non hanno
+        # bisogno di tutta l'altezza della tab, e stare fianco a fianco
+        # evita lo scroll verticale nella GUI unificata.
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(etf_group, 1)
+        row_layout.addWidget(eval_etf_group, 0, Qt.AlignmentFlag.AlignTop)
+
+        layout.addWidget(theme.wrap_max_width_fill(row, max_width=1000))
         layout.addStretch()
 
     def _clear_worker_ref(self, attr_name: str, worker: QThread) -> None:
