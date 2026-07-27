@@ -401,8 +401,15 @@ class MainWindow(QMainWindow):
 
         self._create_menu_bar()
         central_widget = QWidget()
-        main_layout = QVBoxLayout(central_widget)
         self.setCentralWidget(central_widget)
+        # L'intero contenuto (titolo, ricerca, box dati finanziari e tab)
+        # va in una QScrollArea come le singole sotto-tab (vedi
+        # _make_scrollable sopra): il box "2. Dati Finanziari" sta SOPRA le
+        # tab e non era coperto da quello scroll, quindi nella GUI unificata
+        # (spazio verticale ridotto da menu/barra ticker condivisa) la parte
+        # finale della tab attiva (es. il riepilogo campanelli d'allarme in
+        # "Occasioni in Borsa") finiva tagliata invece di poter scorrere.
+        main_layout = self._make_scrollable(central_widget)
 
         self.title_label = QLabel(APP_NAME)
         self.title_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))

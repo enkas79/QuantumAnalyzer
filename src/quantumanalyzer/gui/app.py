@@ -87,6 +87,7 @@ class UnifiedMainWindow(QMainWindow):
             "Es. AAPL, ENI.MI — avvia analisi tecnica e fondamentale insieme")
         self.shared_ticker.setMaximumWidth(420)
         self.shared_ticker.returnPressed.connect(self._on_analyze_both)
+        self.shared_ticker.textChanged.connect(self._force_uppercase_ticker)
 
         # Cronologia degli ultimi ticker analizzati dalla barra condivisa,
         # persistita fra le sessioni e suggerita mentre si digita. Decisione
@@ -244,6 +245,17 @@ class UnifiedMainWindow(QMainWindow):
         """
         self.fundamental._set_theme(name)
         self.technical._apply_theme(name)
+
+    def _force_uppercase_ticker(self, text: str) -> None:
+        """Converte in maiuscolo mentre si digita nella barra condivisa,
+        stesso pattern gia' usato in input_ticker/ticker_input delle due
+        viste embedded (vedi fundamental_view.py/technical_view.py)."""
+        if not text.isupper() and text != "":
+            cursor_pos = self.shared_ticker.cursorPosition()
+            self.shared_ticker.blockSignals(True)
+            self.shared_ticker.setText(text.upper())
+            self.shared_ticker.blockSignals(False)
+            self.shared_ticker.setCursorPosition(cursor_pos)
 
     def _add_recent_ticker(self, ticker: str) -> None:
         """Aggiorna cronologia, suggerimenti del completer e persistenza."""
