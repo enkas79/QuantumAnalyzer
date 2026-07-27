@@ -15,10 +15,9 @@ def _read_version() -> str:
 
     # PyInstaller builds run frozen, without the installed dist-info metadata
     # importlib.metadata needs; version.txt is bundled alongside the
-    # executable as a fallback. The build/packaging pipeline for the merged
-    # app is not set up yet (see MIGRATION_PLAN.md), so in source checkouts
-    # this falls through to the repo-root version.txt three levels up
-    # (technical/ -> quantumanalyzer/ -> src/ -> repo root).
+    # executable as a fallback. In source checkouts this falls through to
+    # the repo-root version.txt three levels up (technical/ ->
+    # quantumanalyzer/ -> src/ -> repo root).
     base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3]))
     version_file = base_dir / "version.txt"
     if version_file.exists():

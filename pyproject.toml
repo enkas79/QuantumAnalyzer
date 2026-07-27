@@ -24,11 +24,9 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 
-# Dipendenze della logica "core" (tecnica + fondamentale), gia' portata in
-# questo repo. Nessuna dipendenza GUI qui: PySide6 (StockAnalyzer) e PyQt6
-# (QuantumValue) non sono ancora state unificate su un solo framework, quindi
-# lo scaffold resta installabile e testabile senza nessuna delle due.
-# Vedi MIGRATION_PLAN.md.
+# Dipendenze della logica "core" (tecnica + fondamentale). Nessuna dipendenza
+# GUI qui: PySide6/matplotlib sono nell'extra "gui" sotto, cosi' la sola
+# logica resta installabile e testabile senza dipendenze grafiche.
 dependencies = [
     "pandas>=2.0",
     "numpy>=1.24",
@@ -47,8 +45,8 @@ dev = [
     "pytest-qt>=4.2",
     "mypy>=1.11.2",
 ]
-# GUI unificata su PySide6 (decisione M2 del MIGRATION_PLAN: LGPL, ed era
-# gia' il framework di StockAnalyzer). matplotlib serve alla tab Grafico.
+# GUI unificata su PySide6 (LGPL, libero anche per distribuzione
+# closed-source). matplotlib serve alla tab Grafico.
 gui = [
     "PySide6>=6.6",
     "matplotlib>=3.7",

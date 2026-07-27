@@ -1,60 +1,52 @@
 # QuantumAnalyzer
 
-Fusione di [StockAnalyzer](https://github.com/enkas79/StockAnalyzer) (motore di
-trend-confirmation tecnico) e [QuantumValue](https://github.com/enkas79/QuantumValue)
-(scoring value investing e screening dei multipli di mercato) in un'unica
-base di codice Python.
+App desktop (Python + PySide6) per analizzare un titolo azionario o un ETF da
+due angolazioni complementari nella stessa finestra: **trend tecnico** e
+**convenienza fondamentale**. Un'unica barra ticker condivisa avvia entrambe
+le analisi in parallelo, senza dover aprire due programmi diversi e
+incrociare i risultati a mano.
 
-**Stato attuale: app completa (GUI PySide6 unificata, CI, pipeline
-installer).** La finestra principale ha una barra ticker condivisa (con
-cronologia suggerita) e due tab — Analisi Tecnica e Analisi Fondamentale —
-che analizzano lo stesso titolo in parallelo. Un unico menu (File /
-Visualizza / Guida / Aiuto) e un unico tema chiaro/scuro coprono entrambe le
-viste — guide, configurazione API esterne (FMP/Twelve Data/EODHD) e verifica
-aggiornamenti sono tutte raggiungibili da li', senza menu duplicati. I
-servizi comuni (controllo aggiornamenti, ricerca ticker, cache) sono
-unificati in `quantumanalyzer.common`. Un push che modifica `version.txt` su
-`main` costruisce gli installer (.exe/.dmg/.deb) e pubblica la release. Vedi
-[MIGRATION_PLAN.md](MIGRATION_PLAN.md) per la storia della migrazione e il
-restyle post-M4.
+## Cosa fa
 
-## Perche' questa fusione
+Una sola finestra con barra ticker condivisa (cronologia suggerita mentre si
+digita, maiuscolo automatico) e due tab principali:
 
-I due programmi originali analizzano lo stesso oggetto (un titolo azionario)
-da due angolazioni complementari e non sovrapposte:
+- **Analisi Tecnica (Trend)** — risponde a "il trend attuale e' affidabile?":
+  EMA 50/200, RSI(14), volume relativo, ATR per il rischio, MACD/Bollinger
+  opzionali, grafico prezzo, watchlist persistente e backtest.
+- **Analisi Fondamentale (Value)** — risponde a "il prezzo e' giustificato
+  dai fondamentali?", su tre sotto-tab:
+  - *Analisi Strutturale Value*: Earnings Yield, ROIC, EV/EBITDA (qualita' e
+    convenienza in stile Magic Formula di Greenblatt).
+  - *Occasioni in Borsa*: P/E, P/S, PEG e 4 "campanelli d'allarme" di
+    valutazione (P/E oltre la media storica, P/S fuori dai limiti tipici,
+    margine EBIT in contrazione, Free Cash Flow negativo su piu' periodi).
+  - *Valutazione ETF*: TER, AUM e rendimenti per lo screening di fondi
+    passivi.
 
-- **StockAnalyzer** risponde a "il trend attuale e' affidabile?" — EMA
-  50/200, RSI(14), volume relativo, ATR per il rischio, MACD/Bollinger
-  opzionali. Nessun dato fondamentale.
-- **QuantumValue** risponde a "il prezzo attuale e' giustificato dai
-  fondamentali?" — Earnings Yield, ROIC, EV/EBITDA (qualita'/convenienza in
-  stile Magic Formula di Greenblatt), P/E, P/S, PEG (multipli di mercato), piu'
-  screening ETF (TER, AUM, rendimenti). Include anche 4 "campanelli d'allarme"
-  di valutazione: P/E molto oltre la propria media storica, P/S oltre i limiti
-  tipici di un'azienda matura, margine EBIT in contrazione mentre il prezzo
-  sale, Free Cash Flow negativo su piu' periodi consecutivi.
+Nessuna delle due viste dice nulla su cio' che copre l'altra: un titolo puo'
+avere un trend tecnico solido e fondamentali deboli, o viceversa — vederle
+affiancate sullo stesso ticker aiuta a non guardare solo meta' del quadro.
 
-Nessuno dei due dice nulla su cio' che copre l'altro: un titolo puo' avere un
-trend tecnico solidissimo e fondamentali pessimi, o viceversa. Un'unica app
-con entrambe le viste affiancate sullo stesso ticker e' più utile di due
-programmi separati che vanno aperti e incrociati a mano.
+Un unico menu (File / Visualizza / Guida / Aiuto) e un unico tema
+chiaro/scuro coprono entrambe le viste: guida all'uso, configurazione delle
+API dati esterne (FMP/Twelve Data/EODHD), export CSV e verifica
+aggiornamenti sono tutti raggiungibili da li'.
 
 ## Struttura del repository
 
 ```
 src/quantumanalyzer/
-    technical/        # Da StockAnalyzer: engine, indicators, data, risk,
-                      # backtest, cli, updater (adapter sul checker comune).
-    fundamental/      # Da QuantumValue: models (scoring value + campanelli
-                      # d'allarme), config, cache, utils.
+    technical/        # Motore di conferma del trend: engine, indicators,
+                      # data, risk, backtest, cli, updater.
+    fundamental/      # Scoring value investing, campanelli d'allarme,
+                      # config, cache, utils.
     common/           # Servizi condivisi: controllo aggiornamenti GitHub
                       # (updater.py), ricerca ticker (search.py), cache
-                      # SQLite a TTL (cache.py), importer dati legacy
-                      # (legacy_import.py).
+                      # SQLite a TTL (cache.py).
     gui/              # GUI unificata PySide6: app.py (finestra principale +
-                      # entry point), technical_view/_workers (da
-                      # StockAnalyzer), fundamental_view/_workers (da
-                      # QuantumValue, portata PyQt6 -> PySide6), theme.py.
+                      # entry point), technical_view/_workers,
+                      # fundamental_view/_workers, theme.py.
 tests/
     technical/  fundamental/  common/  gui/
 ```
@@ -70,9 +62,10 @@ quantumanalyzer-gui         # app completa (tecnica + fondamentale)
 quantumanalyzer-cli AAPL    # sola analisi tecnica da terminale
 ```
 
-Al primo avvio, la GUI recupera automaticamente le API key e le preferenze di
-un'eventuale installazione precedente di QuantumValue (migrazione one-shot,
-senza sovrascrivere nulla di gia' configurato).
+In alternativa, gli installer pronti (.exe/.dmg/.deb) sono pubblicati su
+[Releases](https://github.com/enkas79/QuantumAnalyzer/releases): ogni push
+che aggiorna `version.txt` su `main` costruisce e pubblica automaticamente
+una nuova release tramite GitHub Actions.
 
 ```python
 # Analisi tecnica (trend confirmation)
@@ -96,4 +89,4 @@ print(verdict)
 
 ## Licenza
 
-MIT, come entrambi i progetti originali.
+MIT.

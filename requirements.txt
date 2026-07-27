@@ -1,6 +1,6 @@
 # Dipendenze della logica "core" (tecnica + fondamentale) di QuantumAnalyzer.
-# Nessuna dipendenza GUI: vedi MIGRATION_PLAN.md per lo stato dell'unificazione
-# PySide6/PyQt6.
+# Nessuna dipendenza GUI qui: PySide6/matplotlib si installano a parte con
+# pip install -e ".[gui]" (vedi pyproject.toml).
 
 # Dati finanziari
 pandas>=2.0
