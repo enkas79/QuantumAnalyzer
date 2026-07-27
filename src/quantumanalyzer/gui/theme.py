@@ -89,8 +89,8 @@ _STYLESHEET = Template("""
         font-weight: 600;
         border: 1px solid $border;
         border-radius: 10px;
-        margin-top: 16px;
-        padding: 14px 10px 10px 10px;
+        margin-top: 12px;
+        padding: 10px 8px 6px 8px;
         background-color: $card;
     }
     QGroupBox::title {

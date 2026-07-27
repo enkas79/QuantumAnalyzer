@@ -63,8 +63,8 @@ class UnifiedMainWindow(QMainWindow):
 
         central = QWidget()
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(6)
 
         # --- Le due viste embedded, create prima della barra condivisa: -----
         # quest'ultima riusa lo switch Azioni/ETF della vista fondamentale

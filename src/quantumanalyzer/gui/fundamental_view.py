@@ -440,6 +440,15 @@ class MainWindow(QMainWindow):
         self._setup_tab_value(self.tab_value)
         self._setup_tab_opportunity(self.tab_opp)
         self._setup_tab_etf(self.tab_etf)
+        # Altezza minima esplicita: il QTabWidget e' annidato dentro la
+        # QScrollArea esterna installata da _make_scrollable() sul central
+        # widget (vedi sopra), e il sizeHint() di una QScrollArea NON
+        # riflette l'altezza reale del contenuto delle sotto-tab. Senza
+        # questo minimo, in finestre basse (GUI unificata) il layout poteva
+        # calcolare uno spazio minimo troppo compresso per la tab attiva,
+        # tagliandone il contenuto invece di riservare spazio reale o
+        # mostrare lo scroll esterno.
+        self.tabs.setMinimumHeight(380)
         main_layout.addWidget(self.tabs, stretch=1)
 
         self._toggle_asset_mode()
@@ -817,6 +826,7 @@ class MainWindow(QMainWindow):
 
         grid_layout.setColumnStretch(4, 1)
         grid_layout.setHorizontalSpacing(30)
+        grid_layout.setVerticalSpacing(6)
 
         fields = [
             ('ebit', 'EBIT:', 2, 0), ('ev', 'EV:', 2, 2),
@@ -857,6 +867,7 @@ class MainWindow(QMainWindow):
 
         grid_layout.setColumnStretch(4, 1)
         grid_layout.setHorizontalSpacing(30)
+        grid_layout.setVerticalSpacing(6)
 
         fields = [
             ('ter', 'TER (%):', 2, 0), ('aum', 'AUM (Milioni):', 2, 2),
@@ -904,6 +915,7 @@ class MainWindow(QMainWindow):
         layout = self._make_scrollable(tab)
         metrics_group = QGroupBox("Metriche Analizzate")
         inner_layout = QVBoxLayout(metrics_group)
+        inner_layout.setSpacing(4)
         self.res_labels: Dict[str, QLabel] = {}
         self.res_eval_labels: Dict[str, QLabel] = {}
 
@@ -930,7 +942,8 @@ class MainWindow(QMainWindow):
         self.lbl_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_recommendation = QLabel("In attesa di dati...")
         self.lbl_recommendation.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        eval_layout.addSpacing(10)
+        eval_layout.setSpacing(2)
+        eval_layout.addSpacing(4)
         eval_layout.addWidget(self.lbl_score)
         eval_layout.addWidget(self.lbl_recommendation)
 
@@ -953,6 +966,7 @@ class MainWindow(QMainWindow):
         layout = self._make_scrollable(tab)
         opp_group = QGroupBox("Valutazione Multipli di Mercato")
         inner_layout = QVBoxLayout(opp_group)
+        inner_layout.setSpacing(4)
         self.opp_labels: Dict[str, QLabel] = {}
         self.opp_eval_labels: Dict[str, QLabel] = {}
 
@@ -981,12 +995,14 @@ class MainWindow(QMainWindow):
         self.lbl_opp_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_opp_recommendation = QLabel("In attesa di dati...")
         self.lbl_opp_recommendation.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        eval_opp_layout.addSpacing(10)
+        eval_opp_layout.setSpacing(2)
+        eval_opp_layout.addSpacing(4)
         eval_opp_layout.addWidget(self.lbl_opp_score)
         eval_opp_layout.addWidget(self.lbl_opp_recommendation)
 
         flags_group = QGroupBox("Campanelli d'Allarme (Rischio Valutazione)")
         flags_layout = QVBoxLayout(flags_group)
+        flags_layout.setSpacing(4)
         self.flag_labels: Dict[str, QLabel] = {}
 
         flag_rows = [
@@ -1009,7 +1025,7 @@ class MainWindow(QMainWindow):
         self.lbl_flags_summary = QLabel("In attesa di dati...")
         self.lbl_flags_summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_flags_summary.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        flags_layout.addSpacing(10)
+        flags_layout.addSpacing(4)
         flags_layout.addWidget(self.lbl_flags_summary)
 
         # Due colonne (metriche+verdetto a sinistra, campanelli d'allarme a
@@ -1018,6 +1034,7 @@ class MainWindow(QMainWindow):
         # davvero bisogno di tutta l'altezza della tab.
         left_col = QVBoxLayout()
         left_col.setContentsMargins(0, 0, 0, 0)
+        left_col.setSpacing(6)
         left_col.addWidget(opp_group)
         left_col.addWidget(eval_opp_group)
         left_widget = QWidget()
@@ -1036,6 +1053,7 @@ class MainWindow(QMainWindow):
         layout = self._make_scrollable(tab)
         etf_group = QGroupBox("Analisi Profilo ETF")
         inner_layout = QVBoxLayout(etf_group)
+        inner_layout.setSpacing(4)
         self.etf_res_labels: Dict[str, QLabel] = {}
         self.etf_eval_labels: Dict[str, QLabel] = {}
 
@@ -1062,7 +1080,8 @@ class MainWindow(QMainWindow):
         self.lbl_etf_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_etf_recommendation = QLabel("In attesa di dati...")
         self.lbl_etf_recommendation.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        eval_etf_layout.addSpacing(10)
+        eval_etf_layout.setSpacing(2)
+        eval_etf_layout.addSpacing(4)
         eval_etf_layout.addWidget(self.lbl_etf_score)
         eval_etf_layout.addWidget(self.lbl_etf_recommendation)
 
